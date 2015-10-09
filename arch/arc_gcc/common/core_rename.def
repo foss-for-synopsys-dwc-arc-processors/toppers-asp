@@ -1,0 +1,19 @@
+# core_support.S
+start_r
+ret_int
+ret_exc
+exc_tbl
+dispatch
+start_dispatch
+exit_and_dispatch
+call_exit_kernel
+core_int_entry
+core_exc_entry
+
+# core_config.c
+excpt_nest_count
+core_initialize
+core_terminate
+x_install_exc
+default_int_handler
+default_exc_handler

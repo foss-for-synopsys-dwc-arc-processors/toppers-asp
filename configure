@@ -1,0 +1,288 @@
+#! /usr/bin/perl
+#
+#  TOPPERS Software
+#      Toyohashi Open Platform for Embedded Real-Time Systems/
+# 
+#  Copyright (C) 2001-2003 by Embedded and Real-Time Systems Laboratory
+#                              Toyohashi Univ. of Technology, JAPAN
+#  Copyright (C) 2006-2009 by Embedded and Real-Time Systems Laboratory
+#              Graduate School of Information Science, Nagoya Univ., JAPAN
+# 
+#	The above copyright holders grant permission gratis to use,
+#	duplicate, modify, or redistribute (hereafter called use) this
+#	software (including the one made by modifying this software),
+#	provided that the following four conditions (1) through (4) are
+#	satisfied.
+#
+#	(1) When this software is used in the form of source code, the above
+#    	copyright notice, this use conditions, and the disclaimer shown
+#    	below must be retained in the source code without modification.
+#
+#	(2) When this software is redistributed in the forms usable for the
+#    	development of other software, such as in library form, the above
+#    	copyright notice, this use conditions, and the disclaimer shown
+#    	below must be shown without modification in the document provided
+#    	with the redistributed software, such as the user manual.
+#
+#	(3) When this software is redistributed in the forms unusable for the
+#    	development of other software, such as the case when the software
+#    	is embedded in a piece of equipment, either of the following two
+#   	 conditions must be satisfied:
+#
+#		(a) The above copyright notice, this use conditions, and the
+#         	disclaimer shown below must be shown without modification in
+#     		the document provided with the redistributed software, such as
+#      		the user manual.
+#
+# 		(b) How the software is to be redistributed must be reported to the
+#     		TOPPERS Project according to the procedure described
+#     		separately.
+#
+#	(4) The above copyright holders and the TOPPERS Project are exempt
+#    	from responsibility for any type of damage directly or indirectly
+#   	caused from the use of this software and are indemnified by any
+#    	users or end users of this software from any and all causes of
+#    	action whatsoever.
+#
+#	THIS SOFTWARE IS PROVIDED "AS IS." THE ABOVE COPYRIGHT HOLDERS AND
+#	THE TOPPERS PROJECT DISCLAIM ANY EXPRESS OR IMPLIED WARRANTIES,
+#	INCLUDING, BUT NOT LIMITED TO, ITS APPLICABILITY TO A PARTICULAR
+#	PURPOSE. IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS AND THE
+#	TOPPERS PROJECT BE LIABLE FOR ANY TYPE OF DAMAGE DIRECTLY OR
+#	INDIRECTLY CAUSED FROM THE USE OF THIS SOFTWARE.
+# 
+#  @(#) $Id: configure 1733 2010-02-03 03:50:52Z ertl-hiro $
+# 
+
+require "getopt.pl";
+
+#  options
+#
+#  -T <target>			target name (required)
+#  -A <applname>		application name (default is sample1)
+#  -a <appldir>			the directory of application
+#  -U <applobjs>		other object files of the application
+#				(.o file, multiple files are allowed)
+#  -L <kernel_lib>		the directory of kernel lib (libkernel.a)
+#				(if this option is omitted, the kernel lib will also be maked)
+#  -f				compile the kernel in the unit of function
+#  -D <srcdir>			the directory of kernel source files
+#  -l <srclang>			program language (only c and c++ are supported)
+#  -t <templatedir>		the template directory (default is sample)
+#  -m <makefile>		the template Makefile (default is Makefile)
+#  -d <dbgenv>			the debug environment
+#  -r				use the sample code of trace log
+#  -p <perl>			the path of perl
+#  -g <cfg>			the path of TOPPERS configurator
+
+#  example(1)
+#
+#  % ../configure -T dve68k_gcc -D GDB_STUB -A perf1 -a ../test -U histogram.o
+#
+#  example(2)
+#
+#  % ../configure -T macosx_gcc -L .
+#  the application is sample1
+
+#
+#   get options
+#
+do Getopt("TAaULDltmdpg");
+
+#
+#  initialize the variables
+#
+
+$target = $opt_T;
+$applname = $opt_A ? $opt_A : "sample1";
+$appldir = $opt_a ? $opt_a : "";
+$applobjs = $opt_U ? $opt_U : "";
+$kernel_lib = $opt_L ? $opt_L : "";
+$kernel_funcobjs = $opt_f ? "true" : "";
+$srclang = $opt_l ? $opt_l : "c";
+$makefile = $opt_m ? $opt_m : "Makefile";
+$dbgenv = $opt_d ? "TOPPERS_".$opt_d : "";
+$enable_trace = $opt_r ? "true" : "";
+
+#
+#  get the file extension of object file
+#
+sub get_objext {
+	local(@uname);
+
+	use POSIX;
+	@uname = do uname();
+	if ($uname[0] =~ /^cygwin/i) {
+		return("exe");
+	}
+	else {
+		return("");
+	}
+}
+
+#
+#  get the path of program
+#
+sub get_path {
+	local($progname, @pathlist) = @_;
+	local($path);
+
+	foreach $path (@pathlist) {
+		if (-x $path."/".$progname) {
+			return($path."/".$progname);
+		}
+	}
+	return("");
+}
+
+#
+#  convert files
+#
+sub convert {
+	local($infile, $outfile) = @_;
+	local($line, $varname, $varval);
+
+	print STDERR "configure: Generating $outfile from $infile.\n";
+	if (-f $outfile) {
+		print STDERR "configure: $outfile exists.",
+						"  Save as $outfile.bak.\n";
+		rename($outfile, $outfile.".bak");
+	}
+	unless (open(INFILE, $infile)) {
+		print STDERR "configure: can't open $infile\n";
+		exit(1);
+	}
+	unless (open(OUTFILE, "> ".$outfile)) {
+		print STDERR "configure: can't open $outfile\n";
+		exit(1);
+	}
+
+	while ($line = <INFILE>) {
+		chop $line;
+		while ($line =~ /^(.*)\@\(([A-Za-z_]+)\)(.*)$/) {
+			$line = $1.$vartable{$2}.$3;
+		}
+		print OUTFILE $line,"\n";
+	}
+
+	close(INFILE);
+	close(OUTFILE);
+}
+
+#
+#  generate files according template
+#
+sub generate {
+	local($file, $mandatory) = @_;
+	local($path);
+
+	if ($sys) {
+		$path = $templatedir."/".$file.".".$cpu."-".$sys;
+		if (-f $path) {
+			do convert($path, $file);
+			return;
+		}
+
+		$path = $templatedir."/".$file.".".$sys;
+		if (-f $path) {
+			do convert($path, $file);
+			return;
+		}
+	}	
+
+	$path = $templatedir."/".$file.".".$cpu;
+	if (-f $path) {
+		do convert($path, $file);
+		return;
+	}	
+
+	$path = $templatedir."/".$file;
+	if ($mandatory || -f $path) {
+		do convert($path, $file);
+	}	
+}
+
+#
+#  get source directory
+#
+$pwd = `pwd`; chop $pwd;
+if ($opt_D) {
+	$srcabsdir = $srcdir = $opt_D;
+}
+elsif ($0 =~ /(.*)\/configure/) {
+	$srcdir = $1;
+	if ($srcdir =~ /^\//) {
+		$srcabsdir = $srcdir;
+	}
+	else {
+		$srcabsdir = $pwd."/".$srcdir;
+	}
+}
+else {
+	$srcabsdir = $srcdir = $pwd;
+}
+
+$perl = $opt_p ? $opt_p : do get_path("perl", ("/usr/local/bin", "/usr/bin"));
+$cfg = $opt_g ? $opt_g : "\$(SRCDIR)/cfg/cfg/cfg";
+$cfgfile = $opt_g ? $opt_g : $srcdir."/cfg/cfg/cfg";
+$templatedir = $opt_t ? $opt_t : $srcdir."/sample";
+
+#
+#  check -T option
+#
+unless ($opt_T) {
+	print STDERR "configure: -T option is mandatory\n";
+	print STDERR "Installed targets are:\n";
+	foreach $targetname (<$srcdir/target/[a-zA-Z1-9]*>) {
+		$targetname =~ s|$srcdir/target/||;
+		print STDERR "\t$targetname\n";
+	}
+	exit(1);
+}
+
+#
+#  generate variable table
+#
+%vartable = ();
+$vartable{"TARGET"} = $target;
+$vartable{"APPLNAME"} = $applname;
+$vartable{"APPLDIR"} = $appldir;
+$vartable{"APPLOBJS"} = $applobjs;
+$vartable{"KERNEL_LIB"} = $kernel_lib;
+$vartable{"KERNEL_FUNCOBJS"} = $kernel_funcobjs;
+$vartable{"SRCDIR"} = $srcdir;
+$vartable{"SRCABSDIR"} = $srcabsdir;
+$vartable{"SRCLANG"} = $srclang;
+$vartable{"DBGENV"} = $dbgenv;
+$vartable{"ENABLE_TRACE"} = $enable_trace;
+$vartable{"PERL"} = $perl;
+$vartable{"CFG"} = $cfg;
+$objext = do get_objext();
+$vartable{"OBJEXT"} = $objext;
+
+#
+#  check target directory
+#
+
+if (! -d $srcdir."/target/".$target) {
+	print STDERR "configure: $srcdir/target/$target not exist\n";
+	exit(1);
+}
+
+#
+#  generate makefile and application files
+#
+
+do generate($makefile, 1);
+do generate($applname.".c", 0);
+do generate($applname.".cpp", 0);
+do generate($applname.".h", 0);
+do generate($applname.".cfg", 0);
+
+#
+#  check whether configurator exists
+#
+
+if (!(-x ($objext == "" ? $cfgfile : $cfgfile.".".$objext))) {
+	print STDERR "Executable file of the configurator (cfg) is not found.\n";
+}

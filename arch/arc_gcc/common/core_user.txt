@@ -1,0 +1,212 @@
+		TOPPERS/ASPkernel
+		user manaual of arc (GCC) core dependent part
+			
+		corresponding ASPkernel version: Release 1.7.0
+		Final update: 2014-3-30
+----------------------------------------------------------------------
+/*
+ *  TOPPERS Software
+ *      Toyohashi Open Platform for Embedded Real-Time Systems
+ *
+ *  Copyright (C) 2008-2009 by Embedded and Real-Time Systems Laboratory
+ *              Graduate School of Information Science, Nagoya Univ., JAPAN
+ *
+ *	The above copyright holders grant permission gratis to use,
+ *	duplicate, modify, or redistribute (hereafter called use) this
+ *	software (including the one made by modifying this software),
+ *	provided that the following four conditions (1) through (4) are
+ *	satisfied.
+ *
+ *	(1) When this software is used in the form of source code, the above
+ *    	copyright notice, this use conditions, and the disclaimer shown
+ *    	below must be retained in the source code without modification.
+ *
+ *	(2) When this software is redistributed in the forms usable for the
+ *    	development of other software, such as in library form, the above
+ *    	copyright notice, this use conditions, and the disclaimer shown
+ *    	below must be shown without modification in the document provided
+ *    	with the redistributed software, such as the user manual.
+ *
+ *	(3) When this software is redistributed in the forms unusable for the
+ *    	development of other software, such as the case when the software
+ *    	is embedded in a piece of equipment, either of the following two
+ *   	 conditions must be satisfied:
+ *
+ *		(a) The above copyright notice, this use conditions, and the
+ *         	disclaimer shown below must be shown without modification in
+ *     		the document provided with the redistributed software, such as
+ *      	the user manual.
+ *
+ * 		(b) How the software is to be redistributed must be reported to the
+ *     		TOPPERS Project according to the procedure described
+ *     		separately.
+ *
+ *	(4) The above copyright holders and the TOPPERS Project are exempt
+ *    	from responsibility for any type of damage directly or indirectly
+ *   	caused from the use of this software and are indemnified by any
+ *    	users or end users of this software from any and all causes of
+ *    	action whatsoever.
+ *
+ *	THIS SOFTWARE IS PROVIDED "AS IS." THE ABOVE COPYRIGHT HOLDERS AND
+ *	THE TOPPERS PROJECT DISCLAIM ANY EXPRESS OR IMPLIED WARRANTIES,
+ *	INCLUDING, BUT NOT LIMITED TO, ITS APPLICABILITY TO A PARTICULAR
+ *	PURPOSE. IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS AND THE
+ *	TOPPERS PROJECT BE LIABLE FOR ANY TYPE OF DAMAGE DIRECTLY OR
+ *	INDIRECTLY CAUSED FROM THE USE OF THIS SOFTWARE.
+ */
+ 
+----------------------------------------------------------------------
+
+
+(1) summary
+Synopsys' DesignWare ARC Processors are a family of 32-bit CPUs that SoC
+designers can optimize for a wide range of uses, from deeply embedded to
+high-performance host applications in a variety of market segments.
+
+All DesignWare ARC processors utilize a 16-/32-bit ISA that provides excellent
+performance and code density for embedded and host SoC applications. The RISC
+microprocessors are synthesizable and can be implemented in any foundry or
+process, and are supported by a complete suite of development tools.
+
+The DesignWare ARC EM Family of embedded processor cores is based on the
+scalable ARCv2 ISA and is optimized for performance efficiency (DMIPS/mW and
+DMIPS/mm2). The ARC EM family includes the EM4 (cacheless) and EM6 (instruction
+and data caches) processor cores, designed for use in power and area-sensitive
+embedded applications. They offer industry-leading performance efficiency of up
+to 1.77 DMIPS/MHz, with minimal area and power consumption.
+
+The EM Processors are highly-configurable and extensible, enabling designers to
+implement each core with the optimum combination of performance, code density,
+area and power consumption for the specific task or application.
+
+
+(2) CPU exceptions and interrupts
+
+The ARCv2 interrupt unit has 16 allocated exceptions associated with vectors 0
+to 15 and 240 interrupts associated with vectors 16 to 255. It supports for up
+to 16 interrupt priority levels (0 for highest, 15 for lowest). Interrupt
+handlers can be preempted by higher-priority interrupts
+
+The management of exceptions and interrups is implemented through the auxilliary
+registers of ARC.
+
+--------exceptions and interrupts vector table-----------------------------
+Exception		Exception No.  Reset			0x00 Memory
+Error		0x01
+Instruction Error	0x02
+EV_MachineCheck		0x03
+EV_TLBMissI		0x04
+EV_TLBMissD		0x05
+EV_ProtV		0x06
+EV_PrivilegeV		0x07
+EV_SWI			0x08
+EV_Trap			0x09
+EV_Extension		0x0A
+EV_DivZero		0x0B
+EV_DCError		0x0C
+EV_Maligned		0x0D
+Unused			0x0E
+Unused			0X0F
+IRQ16 - IRQ 255		0x10 - FF
+
+* dis_int and ena_int are supported. There are no special limitions for them.
+* CFG_INT is supported. Interrupt can be configured as level triggered or plus triggered
+	- TA_EDGE is supported
+* The procedures of interrupt handling for ARCv2 ISA are compliant with TOPPERS
+  interrupt handling model
+* TMIN_INTPRI is fixed
+* All interrupts are managed by the kernel
+* The interrupt handler of kernel managed interrupt is defined by DEF_INH
+* It's possible for CPU exceptions to happen inside the interrupt handler
+
+
+(4) task context
+	
+typedef struct 
+{
+
+/* scratch regs and argument regs saved by the caller */
+   uint_32 R0;   /* Integer result, Argument 1 */
+   uint_32 R1;   /* Argument 2 */
+   uint_32 R2;   /* Argument 3 */
+   uint_32 R3;   /* Argument 4 */
+   uint_32 R4;   /* Argument 5 */
+   uint_32 R5;   /* Argument 6 */
+   uint_32 R6;   /* Argument 7 */
+   uint_32 R7;   /* Argument 8 */
+   uint_32 R8;   /* Scratch */
+   uint_32 R9;   /* Scratch */
+   uint_32 R10;  /* Scratch */
+   uint_32 R11;  /* Scratch */
+
+   uint_32 LP_COUNT;  /* R60 */
+   uint_32 LP_START;
+   uint_32 LP_END;
+
+   uint_32 R26;  /* (gp) [Never modified] may or may not be used, saved when interrupt and exception happend */   
+   uint_32 ILINK1;  /* R29, ILINK1 register */
+   uint_32 R30
+
+   uint_32 R27;  /* Frame pointer (fp) always points to back-trace structure */
+   uint_32 BLINK;   /* R31, Branch link register */
+
+   uint_32 ERBRET;	/* saved when exception happend */
+   uint_32 ERSTATUS;	/* saved when exception happend */
+   uint_32 ERBTA;	/* saved when exception happend */
+
+   uint_32 R12;  /* Scratch, temporary calculations */
+   uint_32 R13;  /* Saved by Callee */
+   uint_32 R14;  /* Saved by Callee */
+   uint_32 R15;  /* Saved by Callee */
+   uint_32 R16;  /* Saved by Callee */
+   uint_32 R17;  /* Saved by Callee */
+   uint_32 R18;  /* Saved by Callee */
+   uint_32 R19;  /* Saved by Callee */
+   uint_32 R20;  /* Saved by Callee */
+   uint_32 R21;  /* Saved by Callee */
+   uint_32 R22;  /* Saved by Callee */
+   uint_32 R23;  /* Saved by Callee */
+   uint_32 R24;  /* Saved by Callee */
+   uint_32 R25;  /* Saved by Callee */
+
+   
+   /* in task control block */ 
+   uint32  sp	     /* R28 is sp */
+   uint_32 RETURN_ADDRESS;  /* PC Return address only used on ARC CPU */
+}
+	
+
+(5)dir list
+	arch/arc_gcc/common
+		arc.h		architecture definitions
+		cache.c		cache related functions implementation
+		cache.h		cache related functions declarations
+		core.tf		code generatiing template for arc
+				generate vector and interrupt handler table
+		core_cfg1_out.h	header file for generating offset file
+		core_check.tf	check template after compiling and link
+		core_config.c	core dependent part implementation for arc
+		core_config.h	core dependent part declartation
+		core_def.csv	core dependent definitons for static configuration
+		core_kernel.h	core dependent kernel configuration
+		core_offset.tf	template file to generate offset.h
+		core_rename.def
+		core_rename.h
+		core_unrename.h
+		core_sil.h	core dependent part of system interface layer
+		core_stddef.h	core dependent part of standard definition
+		core_support.S	the assemble part of core dependent part
+				(context switch, interrupt handling, CPU exception handling)
+		core_user.txt	core dependent part user manaul
+		Makefile.core	makefile
+
+
+(6)history
+'01/20/2014 
+　* implement support of ARCv2 ISA
+
+
+
+
+
+

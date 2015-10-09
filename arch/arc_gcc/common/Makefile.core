@@ -1,0 +1,37 @@
+#
+#	the core-dependent part of Makefile (for ARC)
+#
+
+# 
+#  the definition of core-dependent directory
+# 
+COREDIR = $(SRCDIR)/arch/$(PRC)_$(TOOL)/common
+
+#
+#  compile option
+#
+INCLUDES := $(INCLUDES) -I$(COREDIR)
+LIBS := $(LIBS) -lgcc
+
+
+#
+#  kernel related definitions
+#
+KERNEL_DIR := $(KERNEL_DIR):$(COREDIR)
+KERNEL_ASMOBJS := $(KERNEL_ASMOBJS) core_support.o
+KERNEL_COBJS := $(KERNEL_COBJS) core_config.o
+
+ifeq ($(EM_STARTKIT_CPU),EM6)
+	KERNEL_COBJS := $(KERNEL_COBJS) cache.o
+endif
+
+#
+#  file dependency
+#
+kernel_cfg.timestamp: $(COREDIR)/core.tf
+$(OBJFILE): $(COREDIR)/core_check.tf
+
+#
+#  configuration option
+#
+CFG_TABS := $(CFG_TABS) --cfg1-def-table $(COREDIR)/core_def.csv 

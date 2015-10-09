@@ -1,0 +1,197 @@
+		TOPPERS/ASPkernel
+		user manaual of emstartkit(GCC) target dependent part
+			
+		corresponding ASPkernel version: Release 1.7.0
+		Final update: 2014-3-30
+----------------------------------------------------------------------
+/*
+ *  TOPPERS Software
+ *      Toyohashi Open Platform for Embedded Real-Time Systems
+ *
+ *  Copyright (C) 2008-2009 by Embedded and Real-Time Systems Laboratory
+ *              Graduate School of Information Science, Nagoya Univ., JAPAN
+ *
+ *	The above copyright holders grant permission gratis to use,
+ *	duplicate, modify, or redistribute (hereafter called use) this
+ *	software (including the one made by modifying this software),
+ *	provided that the following four conditions (1) through (4) are
+ *	satisfied.
+ *
+ *	(1) When this software is used in the form of source code, the above
+ *    	copyright notice, this use conditions, and the disclaimer shown
+ *    	below must be retained in the source code without modification.
+ *
+ *	(2) When this software is redistributed in the forms usable for the
+ *    	development of other software, such as in library form, the above
+ *    	copyright notice, this use conditions, and the disclaimer shown
+ *    	below must be shown without modification in the document provided
+ *    	with the redistributed software, such as the user manual.
+ *
+ *	(3) When this software is redistributed in the forms unusable for the
+ *    	development of other software, such as the case when the software
+ *    	is embedded in a piece of equipment, either of the following two
+ *   	 conditions must be satisfied:
+ *
+ *		(a) The above copyright notice, this use conditions, and the
+ *         	disclaimer shown below must be shown without modification in
+ *     		the document provided with the redistributed software, such as
+ *      	the user manual.
+ *
+ * 		(b) How the software is to be redistributed must be reported to the
+ *     		TOPPERS Project according to the procedure described
+ *     		separately.
+ *
+ *	(4) The above copyright holders and the TOPPERS Project are exempt
+ *    	from responsibility for any type of damage directly or indirectly
+ *   	caused from the use of this software and are indemnified by any
+ *    	users or end users of this software from any and all causes of
+ *    	action whatsoever.
+ *
+ *	THIS SOFTWARE IS PROVIDED "AS IS." THE ABOVE COPYRIGHT HOLDERS AND
+ *	THE TOPPERS PROJECT DISCLAIM ANY EXPRESS OR IMPLIED WARRANTIES,
+ *	INCLUDING, BUT NOT LIMITED TO, ITS APPLICABILITY TO A PARTICULAR
+ *	PURPOSE. IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS AND THE
+ *	TOPPERS PROJECT BE LIABLE FOR ANY TYPE OF DAMAGE DIRECTLY OR
+ *	INDIRECTLY CAUSED FROM THE USE OF THIS SOFTWARE.
+ */
+ 
+----------------------------------------------------------------------
+
+(1) target description
+	* target hardware
+	　　synopsys emstartkit
+	　　(processor: EM4, EM4-16CR(not supported), EM6, EM6-GP)
+    * target name 
+    　　* target name: emstartkit_gcc
+	　　* system name: emstartkit
+	　　* tools: gcc
+	* target independent version　1.7.0
+	* configurator　1.8.0
+	* dependent arch
+	　　asp/arch/arc_gcc/common　1.7.0
+	* dependent PDIC
+	　　no
+(2) development enviroment
+	* toolchain
+		* Windows and Cygwin
+		* https://github.com/foss-for-synopsys-dwc-arc-processors/arc_gnu_eclipse/releases
+	
+	* debug enviroment
+		- openocd+digilent jtag
+		- ashling jtag
+(3) target definition
+
+(3-1) data Definition
+	* data size
+	　　* int_t: 32bit
+	　　* long_t:32bit
+	　　* char_t: 8bit
+	　　* int_least8_t：8bit
+	　　* void *: 32bit
+	　　* intptr_t: 32bit
+	* support data type
+	　　* int8_t,uint8_t:support: no support
+	　　* int64_t,uint64_t,int128_t,uint128_t: no support
+	　　* float32_t:support
+	　　* double64_t: no support
+
+(3-2) interrupt handling
+	* please refer interrupt handing in ARCv2 ISA and core_user.txt
+	* number of interrupts
+		em4:9
+		em4-16cr:8
+		em6:10
+		em6-gp:10
+	* number of interrupt priority: 2
+		TOPPERS int priority	ARC int priority
+		-1 (TMAX_INTPRI)	1	
+		-2 (TMIN_INTPRI)	0
+	　
+(3-3) CPU exception
+	* please refer exception handlidng ARCv2 ISA and core_user.txt
+
+(3-4) timer to measure system performance
+	* get_utm is supported
+(3-5) extension package
+	* mutex supported
+	* pri_level supported
+	* overrun timer  supported
+	* rstr_task supported
+	* dcre (to be done)	
+(3-6) others
+	* other extension
+
+(4) information about system startup and terminating
+(5) memory map
+	* memmory map of emstart kit
+	0x00000000-0x00020000 (EM4, 128K ICCM) / 0x00008000 (EM6, 32K ICCM)
+	0x10000000-0x18000000 (EM6, 128MB DDR RAM)
+	0x80000000-0x80010000 (EM4, 64K ICCM)
+	0xF0000000-0xFFFFFFFF (peeripheral address)
+	* linkscript
+	when EMSTARTKIT_CPU = EM4_XX defined in Makefile.target, emstartkit_em4.ld will be used
+	when EMSTARTKIT_CPU = EM6_XX defined in Makefile.target, emstartkit_em6.ld will be used
+      
+(6) timer driver information
+	* the default period of timer tick: 1ms
+	* how to change: modify the definition of TIC_NUME and TIC_DENO in  target_kernel.h	 
+	* timer resource
+		timer0 of ARC EM is used as system timer (intno is 16, int pri is -2 ). The definition of timer
+		is in target_timer.c and target_timer.h
+	* to be done :overrun timer support (use timer1) 
+
+(7) serial port driver
+	* resources
+	  The number of serial port is defined by TNUM_PORT in target_syssvc.h
+	  There are two serial ports in emstartkit. Port 0 is connected to PMOD interface.
+	  Port 1 is connected to USB-Serail interface, used as default output port.
+	* UART parameters
+	　　* baud:115200bps
+	　　* data bits: 8bit
+	　　* parity: none
+	　　* stop bits: 1
+
+(8) info about system log
+	* the low level output of system log is implemented by PORT1 
+	* UART parameters is same as in (6)
+(9) building procedures
+　　  
+
+(10) notes for target system
+
+(11) reference for porting similar target
+
+(12) dir list
+
+	target/emstartkit_gcc/
+		Makefile.target			target dependent part of Makefile
+		target_stddef.h			target dependent part of t_stddef.h
+		target_sil.h			target dependent part of sil.h
+		target_kernel.h			target dependent part of kernel.h
+		target_config.h			target dependent part definition
+		target_config.c			target dependent part implementation
+		target_support.S		assemble part including hardware initialization
+		target_rename.def		rename definition
+		target_rename.h			generated by target_rename.def
+		target_unrename.h		generated by target_rename.def
+		target_timer.cfg		system timer static configuration
+		target_timer.h			system timer definition
+		target_timer.c			system timer implementation
+		emstartkit.h			resource description of emstartkit
+		target.tf			target dependent part of kernel.tf
+		target_check.tf			target dependent part of kernel_check.tf
+		target_cfg1_out.h		necessary definition to link cfg1_out.c
+		target_syssvc.h			target dependent part of system service
+		target_serial.cfg		serial port driver's static configuration
+		target_serial.h			serial port driver definition
+		target_test.h			target dependent part of test routine
+		lpc2478_RAM.ld			link script
+		target_user.txt			user manaual of target dependent part
+		MANIFEST			file list
+		E_PACKAGE			package lit
+
+
+(12) history
+'01/20/2014 
+　* implement emstartkit
+　　　

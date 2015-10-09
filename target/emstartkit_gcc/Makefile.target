@@ -1,0 +1,159 @@
+#
+#	the target dependent part of Makefile (for AT91SKYEYE)
+#
+
+#
+#  the definitions of board name, processor name and development
+#  enviroment
+#
+BOARD = emstartkit
+PRC = arc
+TOOL = gcc
+
+
+#16 CR = 16 core regs for EM4
+#GP = EM6GP
+
+
+EM_STARTKIT_CPU = EM4
+#EM_STARTKIT_CPU_SUB = 16CR
+
+USE_CODE_DENSITY = 1
+
+#
+#  complie options
+#
+INCLUDES := $(INCLUDES) -I$(TARGETDIR)
+COPTS := $(COPTS) -mcpu=ARCv2EM -mlittle-endian -mno-sdata -mnorm -mdiv-rem -mswap \
+	-mmpy-option=6 -mbarrel-shifter
+ifeq ($(USE_CODE_DENSITY), 1)
+	COPTS := $(COPTS) -mcode-density
+	CDEFS := $(CDEFS) -DUSE_CODE_DENSITY
+endif
+LDFLAGS := $(LDFLAGS) -mcpu=ARCv2EM  -N -mlittle-endian -nostartfiles
+
+#
+#  kernel related definitions
+#
+KERNEL_DIR := $(KERNEL_DIR) $(TARGETDIR)
+KERNEL_ASMOBJS := $(KERNEL_ASMOBJS) target_support.o
+KERNEL_COBJS := $(KERNEL_COBJS) target_config.o target_timer.o
+
+#
+#  system service related definitions
+#
+SYSSVC_DIR := $(SYSSVC_DIR)
+SYSSVC_COBJS := $(SYSSVC_COBJS) target_serial.o 
+
+#
+#  configurator options
+#
+CFG_TABS := $(CFG_TABS) --cfg1-def-table $(TARGETDIR)/target_def.csv
+
+#
+#  trace log related definitions
+#
+ifeq ($(ENABLE_TRACE),true)
+      COPTS := $(COPTS) 
+      CDEFS := $(CDEFS) -DTOPPERS_ENABLE_TRACE
+      KERNEL_DIR := $(KERNEL_DIR) $(SRCDIR)/arch/logtrace
+      KERNEL_COBJS := $(KERNEL_COBJS) trace_config.o trace_dump.o
+endif
+
+#
+#  the target definition of GNU tool chain
+#
+GCC_TARGET = arc-elf32
+
+#
+#  link script
+#
+#
+
+ifeq ($(EM_STARTKIT_CPU),EM4)
+	LDSCRIPT = $(TARGETDIR)/emstartkit_em4.ld
+ifeq ($(EM_STARTKIT_CPU_SUB),16CR)
+$(error rf16 not supported by arc gcc)
+endif
+endif
+
+ifeq ($(EM_STARTKIT_CPU),EM6)
+	LDSCRIPT = $(TARGETDIR)/emstartkit_em6.ld
+	COPTS := $(COPTS) -mno-volatile-cache
+	CDEFS := $(CDEFS) -DARC_HAS_I_CACHE -DARC_HAS_D_CACHE
+endif
+
+
+#
+#  start module related definitions
+#
+#  as there is STARTUP(start.o) in emstartkit.ld, define the start module
+#  as HIDDEN_OBJS.
+#
+HIDDEN_OBJS = start.o
+
+$(HIDDEN_OBJS): %.o: %.S
+	$(CC) -c $(CFLAGS) $(KERNEL_CFLAGS) $<
+
+$(HIDDEN_OBJS:.o=.d): %.d: %.S
+	@$(PERL) $(SRCDIR)/utils/makedep -C $(CC) \
+		-O "$(CFLAGS) $(KERNEL_CFLAGS)" $< >> Makefile.depend
+
+LDFLAGS := $(LDFLAGS)
+
+#
+#  dependency
+#
+cfg1_out.c: $(TARGETDIR)/target_def.csv
+kernel_cfg.timestamp: $(TARGETDIR)/target.tf
+$(OBJFILE): $(TARGETDIR)/target_check.tf
+
+# 
+#  the template to generate offset file
+# 
+OFFSET_TF := $(TARGETDIR)/target_offset.tf
+
+#
+#  include the processor dependent part of Makefile
+#
+include $(SRCDIR)/arch/$(PRC)_$(TOOL)/common/Makefile.core
+
+#
+#  enable gcov
+#  
+
+#
+#  possible options of ENABLE_GCOV
+#    full              : full application
+#    part              : part of applicaiton
+#    only_kernel_full  : full(for kernel only)
+#    only_kernel_part  : part(for kernel only)
+#    false             : disable
+ifdef ENABLE_GCOV
+ifneq ($(ENABLE_GCOV),false)
+ifeq ($(ENABLE_GCOV),full)
+      CDEFS := $(CDEFS) -DTOPPERS_ENABLE_GCOV_FULL
+      COPTS := $(COPTS) -fprofile-arcs -ftest-coverage
+endif
+ifeq ($(ENABLE_GCOV),part)
+      CDEFS := $(CDEFS) -DTOPPERS_ENABLE_GCOV_PART
+      COPTS := $(COPTS) -fprofile-arcs -ftest-coverage
+endif
+ifeq ($(ENABLE_GCOV),only_kernel_full)
+      CDEFS := $(CDEFS) -DTOPPERS_ENABLE_GCOV_FULL
+      KERNEL_CFLAGS := $(KERNEL_CFLAGS) -fprofile-arcs -ftest-coverage
+      CFG1_OUT_LDFLAGS := $(CFG1_OUT_LDFLAGS) -fprofile-arcs -ftest-coverage
+endif
+ifeq ($(ENABLE_GCOV),only_kernel_part)
+      CDEFS := $(CDEFS) -DTOPPERS_ENABLE_GCOV_PART
+      KERNEL_CFLAGS := $(KERNEL_CFLAGS) -fprofile-arcs -ftest-coverage
+      CFG1_OUT_LDFLAGS := $(CFG1_OUT_LDFLAGS) -fprofile-arcs -ftest-coverage
+endif
+      LIBS := $(LIBS) -lgcov
+      CLEAN_FILES := $(CLEAN_FILES) *.gcda *.gcda.bak *.gcno *.gcov coverage.info
+lcov:
+	rm -f makeoffset.gcno cfg1_out.*
+	lcov -c -d . -o coverage.info --gcov-tool $(GCC_TARGET)-gcov.exe
+	genhtml coverage.info -o coverage_html
+endif
+endif

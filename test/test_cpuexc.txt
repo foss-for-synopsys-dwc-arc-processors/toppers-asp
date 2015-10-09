@@ -1,0 +1,134 @@
+
+		CPU exception test
+
+[test purpose]
+
+thest tests are used to test the system states when cpu exception
+handler starts to run and returns, and the functions of xsns_dpn and
+xsns_xp in the cpu exception handler.
+
+[test items]
+
+(A) the cpu lock flag is not changed when cpu exception handler starts
+	to run
+
+(B) the ipm is not changed when cpu exception handler starts to run
+ 	! as the ipm cannot be read in cpu exception handler, the test 
+	cannot be done
+
+(C) the dispatch disable flag is not changed when cpu exception 
+ 	handler starts to run
+
+(D) the task exception disable flag is not changed when cpu exception 
+ 	handler starts to run
+
+(E) recover the original cpu lock flag when cpu exception handler
+	returns
+
+(F) recover the original ipm when cpu exception handler returns
+
+(G) the dispatch disable flag is not changed when cpu exception
+ 	handler returns
+
+(H) the task exception disable flag is not changed when cpu exception 
+	handler returns
+
+(I) xsns_xpn return the correct value
+
+when the following conditions are all matched, xsns_xpn returns false, 
+or returns true.
+　* task context
+　* interrupts are unlocked
+　* cpu is unlocked
+　* ipm is cleared
+　* task exception is enabled
+
+(J) xsns_dpn return the correct value
+
+when the following conditions are all matched, xsns_dpn returns false, 
+or returns true.
+　* task context
+　* interrupts are unlocked
+　* cpu is unlocked
+　* ipm is cleared
+　* task dispatch is enabled
+
+(K) the recovery through task dispatch
+
+(L) the recovery from task exception routine
+
+[test scenario]
+
+the possible scenarios of CPU exception are as follow. for each
+scenario, a test program is prepared.
+
+(a-1) non-task context
+(a-2) task context
+
+(b-1) interrupts are locked
+(b-2) interrupts are unlocked
+
+(c-1) cpu is locked
+(c-2) cpu is unlocked
+
+(d-1) ipm = TIPM_ENAALL
+(d-2) ipm = TMAX_INTPRI
+	 ! if TMAX_INTPRI = TMIN_INTPRI, as it's same as (d-3), no need to
+	test in this scenario
+(d-3) ipm = TMIN_INTPRI
+(d-4) ipm = TMIN_INTPRI-1
+	 ! it depends on whether ipm can be set with TMAX_INTPRI-1．
+
+(e-1) dispatch enabled
+(e-2) dispatch disabled
+
+(f-1) task exception disabled
+(f-2) task exception enabled
+
+it's complicated to test all the combinations of the above scenarios. A better way is
+to test the representitive patterns of the above scenarios.
+
+first, for the combination from (a) - (c), there are the following 5
+patterns. For the combination from (d) - (f), (d-1)(e-1)(f-2) is a fixed
+pattern.
+
+(1) (a-1)(b-1)(c-2) -> can not recover
+	! no need to test (a-1)(b-1)(c-1)
+(2) (a-1)(b-2)(c-1) -> can not recover
+(3) (a-1)(b-2)(c-2) -> can not recover
+
+(4) (a-2)(b-1)(c-2) -> can not recover
+	! no need (a-2)(b-1)(c-1)
+(5) (a-2)(b-2)(c-1) -> can not recover
+
+then, (a-2)(b-2)(c-2) is a fixed pattern. For the combination from (d) - (f),
+there are the following 8 patterns.
+
+(6) (d-1)(e-2)(f-1) -> can recover through task dispatch
+
+(7) (d-1)(e-1)(f-2) -> can recover from task exception
+
+(8) (d-2)(e-2)(f-2) -> can not recover
+	! no need to test (d-2)(e-1)(f-2).
+
+(9) (d-3)(e-2)(f-2) → can not recover
+	! no need to test (d-3)(e-1)(f-2).
+
+(10) (d-4)(e-2)(f-2) -> can not recover
+	! no need to test (d-4)(e-1)(f-2).
+
+(11) (d-1)(e-2)(f-2) -> can recover through task dispatch and from 
+						task exception
+
+(12) (d-1)(e-1)(f-1) -> can not recover
+	no need to test the 3 patterns of (d-2)-(d-4) & (e-1)& (f-1)
+
+(13) (d-3)(e-2)(f-1) -> can  not recover
+	no need to test the 2 patterns of (d-2),(d-4) & (e-2) & (f-1)
+
+[required resources]
+
+TASK1: TA_ACT, middle priority, with task exception routine
+TASK2: TA_NULL, high priority
+CPUEXC1: TA_NULL
+ALM1: TA_NULL

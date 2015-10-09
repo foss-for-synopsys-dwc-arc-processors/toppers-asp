@@ -1,0 +1,294 @@
+#! /usr/bin/perl
+#
+#  TOPPERS Software
+#      Toyohashi Open Platform for Embedded Real-Time Systems
+# 
+#  Copyright (C) 2007-2008 by Embedded and Real-Time Systems Laboratory
+#              Graduate School of Information Science, Nagoya Univ., JAPAN
+# 
+#	The above copyright holders grant permission gratis to use,
+#	duplicate, modify, or redistribute (hereafter called use) this
+#	software (including the one made by modifying this software),
+#	provided that the following four conditions (1) through (4) are
+#	satisfied.
+#
+#	(1) When this software is used in the form of source code, the above
+#    	copyright notice, this use conditions, and the disclaimer shown
+#    	below must be retained in the source code without modification.
+#
+#	(2) When this software is redistributed in the forms usable for the
+#    	development of other software, such as in library form, the above
+#    	copyright notice, this use conditions, and the disclaimer shown
+#    	below must be shown without modification in the document provided
+#    	with the redistributed software, such as the user manual.
+#
+#	(3) When this software is redistributed in the forms unusable for the
+#    	development of other software, such as the case when the software
+#    	is embedded in a piece of equipment, either of the following two
+#   	 conditions must be satisfied:
+#
+#		(a) The above copyright notice, this use conditions, and the
+#         	disclaimer shown below must be shown without modification in
+#     		the document provided with the redistributed software, such as
+#      		the user manual.
+#
+# 		(b) How the software is to be redistributed must be reported to the
+#     		TOPPERS Project according to the procedure described
+#     		separately.
+#
+#	(4) The above copyright holders and the TOPPERS Project are exempt
+#    	from responsibility for any type of damage directly or indirectly
+#   	caused from the use of this software and are indemnified by any
+#    	users or end users of this software from any and all causes of
+#    	action whatsoever.
+#
+#	THIS SOFTWARE IS PROVIDED "AS IS." THE ABOVE COPYRIGHT HOLDERS AND
+#	THE TOPPERS PROJECT DISCLAIM ANY EXPRESS OR IMPLIED WARRANTIES,
+#	INCLUDING, BUT NOT LIMITED TO, ITS APPLICABILITY TO A PARTICULAR
+#	PURPOSE. IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS AND THE
+#	TOPPERS PROJECT BE LIABLE FOR ANY TYPE OF DAMAGE DIRECTLY OR
+#	INDIRECTLY CAUSED FROM THE USE OF THIS SOFTWARE.
+# 
+#  @(#) $Id: gentest 1546 2009-05-08 10:05:22Z ertl-hiro $
+# 
+
+#
+#		the tool to generate test program
+#
+
+$infile = $ARGV[0];
+
+%parampos = (
+	"get_pri" => 2,
+	"get_inf" => 1,
+	"ref_tsk" => 2,
+	"ref_tex" => 2,
+	"ref_sem" => 2,
+	"ref_flg" => 2,
+	"ref_dtq" => 2,
+	"ref_pdq" => 2,
+	"ref_mbx" => 2,
+	"ref_mtx" => 2,
+	"ref_mpf" => 2,
+	"get_tim" => 1,
+	"get_utm" => 1,
+	"ref_cyc" => 2,
+	"ref_alm" => 2,
+	"get_tid" => 1,
+	"iget_tid" => 1,
+	"get_ipm" => 1,
+);
+
+%paramtype = (
+	"get_pri" => "PRI",
+	"get_inf" => "intptr_t",
+	"ref_tsk" => "T_RTSK",
+	"ref_tex" => "T_RTEX",
+	"ref_sem" => "T_RSEM",
+	"ref_flg" => "T_RFLG",
+	"ref_dtq" => "T_RDTQ",
+	"ref_pdq" => "T_RPDQ",
+	"ref_mbx" => "T_RMBX",
+	"ref_mtx" => "T_RMTX",
+	"ref_mpf" => "T_RMPF",
+	"get_tim" => "SYSTIM",
+	"get_utm" => "SYSUTM",
+	"ref_cyc" => "T_RCYC",
+	"ref_alm" => "T_RALM",
+	"get_tid" => "ID",
+	"iget_tid" => "ID",
+	"get_ipm" => "PRI",
+);
+
+sub gen_var_def {
+	local($svc_call) = @_;
+	local($svcname, @params);
+	local($typename, $varname);
+
+	if ($svc_call =~ /^([a-z_]+)\((.*)\)$/) {
+		$svcname = $1;
+		@params = split(/\s*,\s*/, $2);
+
+		if ($parampos{$svcname}) {
+			$varname = $params[@parampos{$svcname} - 1];
+			$varname =~ s/^\&//;
+			$typename = $paramtype{$svcname};
+			${$TASKVAR{$tskid}}{$typename} = ${varname};
+		}
+	}
+}
+
+sub gen_svc_call {
+	local($svc_call, $error_code_string) = @_;
+	local($error_code);
+
+	$TASKCODE{$tskid} .= $indentstr;
+	$TASKCODE{$tskid} .= sprintf("ercd = %s;\n", $svc_call);
+	do gen_var_def($svc_call);
+
+	if ($error_code_string eq "") {
+		$TASKCODE{$tskid} .= $indentstr;
+		$TASKCODE{$tskid} .= sprintf("check_ercd(ercd, E_OK);\n");
+	}
+	elsif ($error_code_string =~ /^\-\>\s*noreturn$/) {
+		# do nothing.
+	}
+	else {
+		$error_code = $error_code_string;
+		$error_code =~ s/^\-\>\s*([A-Z_]*)$/$1/;
+		$TASKCODE{$tskid} .= $indentstr;
+		$TASKCODE{$tskid} .= sprintf("check_ercd(ercd, %s);\n", $error_code);
+	}
+}
+
+sub parse_line {
+	local($line) = @_;
+
+	if ($line =~ /^\.\./) {
+		# do nothing.
+	}
+	elsif ($line =~ /^==\s*((TASK|ALM)[0-9]+)(.*)$/) {
+		$startflag = 1;
+		$tskid = $1;
+		$line2 = $3;
+		if ($line2 =~ /^\-([0-9]+)/) {
+			$tskcount = $1;
+			$indentstr = "\t\t";
+			if (!$TASKCOUNT{$tskid}) {
+				$TASKCOUNT{$tskid} = 0;
+				if ($tskid =~ /^TASK([0-9]+)$/) {
+					$countvar = "task$1_count";
+				}
+				elsif ($tskid =~ /^ALM([0-9]+)$/) {
+					$countvar = "alarm$1_count";
+				}
+				$TASKCOUNTVAR{$tskid} = $countvar;
+			}
+			if ($tskcount == $TASKCOUNT{$tskid} + 1) {
+				if ($tskcount > 1) {
+					$TASKCODE{$tskid} .= "\n".$indentstr;
+					$TASKCODE{$tskid} .= sprintf("check_point(0);\n\n");
+				}
+				$TASKCOUNT{$tskid} = $tskcount;
+				$TASKCODE{$tskid} .= sprintf("\tcase %d:", $tskcount);
+			}
+			elsif ($tskcount != $TASKCOUNT{$tskid}) {
+				printf STDERR "Subtask count error: %d-%d\n",$tskid,$tskcount;
+			}
+		}
+		else {
+			$tskcount = "";
+			$indentstr = "\t";
+		}
+	}
+	elsif (!$startflag) {
+		# do nothing.
+	}
+	elsif ($line =~ /^(assert\(.*\))$/) {
+		$assert_string = $1;
+		$TASKCODE{$tskid} .= $indentstr;
+		$TASKCODE{$tskid} .= sprintf("check_%s;\n", $assert_string);
+	}
+	elsif ($line =~ /^call\((.*)\)$/) {
+		$call_string = $1;
+		$TASKCODE{$tskid} .= "\n".$indentstr;
+		$TASKCODE{$tskid} .= sprintf("%s;\n", $call_string);
+	}
+	elsif ($line =~ /^([0-9]+)\:\s*MISSING$/) {
+		$check_no = $1;
+		$TASKCODE{$tskid} .= "\n".$indentstr;
+		$TASKCODE{$tskid} .= sprintf("check_point(%d);\n", $check_no);
+	}
+	elsif ($line =~ /^([0-9]+)\:\s*RETURN$/) {
+		$check_no = $1;
+		$TASKCODE{$tskid} .= "\n".$indentstr;
+		$TASKCODE{$tskid} .= sprintf("check_point(%d);\n", $check_no);
+		$TASKCODE{$tskid} .= $indentstr;
+		$TASKCODE{$tskid} .= "return;\n";
+	}
+	elsif ($line =~ /^RETURN$/) {
+		$TASKCODE{$tskid} .= "\n".$indentstr;
+		$TASKCODE{$tskid} .= "return;\n";
+	}
+	elsif ($line =~ /^([0-9]+)\:\s*END$/) {
+		$check_no = $1;
+		$TASKCODE{$tskid} .= "\n".$indentstr;
+		$TASKCODE{$tskid} .= sprintf("check_finish(%d);\n", $check_no);
+		$endflag = 1;
+	}
+	elsif ($line =~ /^([0-9]+)\:\s*([a-z_]+\(.*\))\s*(\-\>\s*[A-Za-z_]*)?\s*$/) {
+		$check_no = $1;
+		$svc_call = $2;
+		$error_code_string = $3;
+		$TASKCODE{$tskid} .= "\n".$indentstr;
+		$TASKCODE{$tskid} .= sprintf("check_point(%d);\n", $check_no);
+		do gen_svc_call($svc_call, $error_code_string);
+	}
+	elsif ($line =~ /^([a-z_]+\(.*\))\s*(\-\>\s*[A-Za-z_]*)?\s*$/) {
+		$svc_call = $1;
+		$error_code_string = $2;
+		$TASKCODE{$tskid} .= "\n";
+		do gen_svc_call($svc_call, $error_code_string);
+	}
+	else {
+		print STDERR "Error: ",$line,"\n";
+	}
+}
+
+#
+#  read script file
+#
+$startflag = 0;
+$endflag = 0;
+open(INFILE, $infile) || die "Cannot open $infile";
+while (($line = <INFILE>) && !$endflag) {
+	chomp $line;
+	$line =~ s/^\s*\*\s*//;
+	$line =~ s/\s*\/\/.*$//;
+	$line =~ s/\s*\.\.\..*$//;
+	next unless($line);
+	do parse_line($line);
+}
+close(INFILE);
+
+#
+#  output task code
+#
+sub output_task {
+	if ($TASKCOUNT{$tskid}) {
+		printf "\nstatic uint_t\t%s = 0;\n", $TASKCOUNTVAR{$tskid};
+	}
+	print "\nvoid\n";
+	if ($tskid =~ /^TASK([0-9]+)$/) {
+		print "task$1(intptr_t exinf)\n";
+	}
+	elsif ($tskid =~ /^ALM([0-9]+)$/) {
+		print "alarm$1_handler(intptr_t exinf)\n";
+	}
+	print "{\n";
+	print "\tER\t\tercd;\n";
+	foreach $typename (keys(%{$TASKVAR{$tskid}})) {
+		print "\t",$typename, (length($typename) < 4 ? "\t\t" : "\t"),
+								${$TASKVAR{$tskid}}{$typename},";\n";
+	}
+	if ($TASKCOUNT{$tskid}) {
+		printf "\n\tswitch (++%s) {\n", $TASKCOUNTVAR{$tskid};
+	}
+	print $TASKCODE{$tskid};
+	if ($TASKCOUNT{$tskid}) {
+		printf "\n\t\tcheck_point(0);\n";
+		printf "\t}\n";
+	}
+	else {
+		print "\n";
+	}
+	print "\tcheck_point(0);\n";
+	print "}\n";
+}
+
+#
+#  output test program
+#
+foreach $tskid (sort(keys(TASKCODE))) {
+	do output_task();
+}

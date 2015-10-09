@@ -1,0 +1,191 @@
+#! /usr/bin/perl
+#
+#  TOPPERS Software
+#      Toyohashi Open Platform for Embedded Real-Time Systems
+# 
+#  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
+#                              Toyohashi Univ. of Technology, JAPAN
+#  Copyright (C) 2004-2007 by Embedded and Real-Time Systems Laboratory
+#              Graduate School of Information Science, Nagoya Univ., JAPAN
+# 
+#	The above copyright holders grant permission gratis to use,
+#	duplicate, modify, or redistribute (hereafter called use) this
+#	software (including the one made by modifying this software),
+#	provided that the following four conditions (1) through (4) are
+#	satisfied.
+#
+#	(1) When this software is used in the form of source code, the above
+#    	copyright notice, this use conditions, and the disclaimer shown
+#    	below must be retained in the source code without modification.
+#
+#	(2) When this software is redistributed in the forms usable for the
+#    	development of other software, such as in library form, the above
+#    	copyright notice, this use conditions, and the disclaimer shown
+#    	below must be shown without modification in the document provided
+#    	with the redistributed software, such as the user manual.
+#
+#	(3) When this software is redistributed in the forms unusable for the
+#    	development of other software, such as the case when the software
+#    	is embedded in a piece of equipment, either of the following two
+#   	 conditions must be satisfied:
+#
+#		(a) The above copyright notice, this use conditions, and the
+#         	disclaimer shown below must be shown without modification in
+#     		the document provided with the redistributed software, such as
+#      		the user manual.
+#
+# 		(b) How the software is to be redistributed must be reported to the
+#     		TOPPERS Project according to the procedure described
+#     		separately.
+#
+#	(4) The above copyright holders and the TOPPERS Project are exempt
+#    	from responsibility for any type of damage directly or indirectly
+#   	caused from the use of this software and are indemnified by any
+#    	users or end users of this software from any and all causes of
+#    	action whatsoever.
+#
+#	THIS SOFTWARE IS PROVIDED "AS IS." THE ABOVE COPYRIGHT HOLDERS AND
+#	THE TOPPERS PROJECT DISCLAIM ANY EXPRESS OR IMPLIED WARRANTIES,
+#	INCLUDING, BUT NOT LIMITED TO, ITS APPLICABILITY TO A PARTICULAR
+#	PURPOSE. IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS AND THE
+#	TOPPERS PROJECT BE LIABLE FOR ANY TYPE OF DAMAGE DIRECTLY OR
+#	INDIRECTLY CAUSED FROM THE USE OF THIS SOFTWARE.
+# 
+#  @(#) $Id: makedep 2004 2010-12-31 00:43:36Z ertl-hiro $
+# 
+
+require "getopt.pl";
+
+#  options
+#
+#  -C <cc_path>		the name of c compiler
+#  -O <cc_opts>		the options for c compiler
+#  -X				the source file is seen as the C header file
+#
+#  -T <target>		target name
+#  -D <t_dir>		the target dir (if -T is specified, no use)
+#  -d				hold the target dir (if -T is specified, no use)
+#  -S				split the dependency for multiple targets (if don't
+#  					do this, the make may fail)
+#
+#  -R <dirname>		the root dir in Cygwin (default is cygdrive)
+
+#
+#  get options
+#
+do Getopt("COTDR");
+
+$cc_path = $opt_C;
+$cc_opts = $opt_O;
+
+if ($opt_T) {
+	$target_name = $opt_T;
+}
+elsif ($opt_D) {
+	$target_dir = $opt_D;
+}
+elsif (!$opt_d) {
+	$target_dir = "";
+}
+
+if ($opt_R) {
+	$cygwin_root = $opt_R;
+}
+else {
+	$cygwin_root = "cygdrive";
+}
+
+#
+# check whether it's Cygwin
+#
+use POSIX;
+@uname = do uname();
+if ($uname[0] =~ /^cygwin/i) {
+	$cygwin = 1;
+}
+
+#
+#  output the dependency into the %dependlist
+#
+sub output_dependlist {
+	local($target) = @_;
+	local($column, $len, $file);
+
+	print $target, ": ";
+	$column = length($target) + 2;
+
+	foreach $file (keys(%dependlist)) {
+		$len = length($file) + 1;
+		if ($column > 8 && $column + $len >= 70) {
+			print "\\\n\t";
+			$column = 8;
+		}
+		$column += $len;
+		print "$file ";
+	}
+	print "\n";
+}
+
+#
+#  make the dependency of $file into %dependlist 
+#
+sub makedepend_one {
+	local($file) = @_;
+	local($command, $input, $dir, $filename);
+
+	$command = "$cc_path -E $cc_opts";
+	if ($opt_X) {
+		$command .= " -x c-header";
+	}
+	unless (open(INPUT, "$command $file |")) {
+		print STDERR "makedep: can't open $file\n";
+		exit(1);
+	}
+	while ($line = <INPUT>) {
+		if ($line =~ /^\#\s*([0-9]+)\s*\"([^\"]+)\"/) {
+			$filename = $2;
+			$filename =~ s/ /\\ /g;
+			if ($filename !~ /^\<.*\>$/ && $filename !~ /\/$/) {
+				if ($cygwin) {
+					$filename =~ s/^([a-zA-Z]):/\/$cygwin_root\/$1/;
+				}
+				$dependlist{$filename} = 1;
+			}
+		}
+	}
+	unless (close(INPUT)) {
+		print STDERR "makedep: can't execute $command\n";
+		exit(1);
+	}
+}
+
+#
+#  main routine
+#
+foreach $file (@ARGV) {
+	%dependlist = ();
+	do makedepend_one($file);
+	if (%dependlist) {
+		if ($target_name) {
+			if ($opt_S) {
+				foreach $target (split(/[ \t]+/, $target_name)) {
+					do output_dependlist($target);
+				}
+			}
+			else {
+				do output_dependlist($target_name);
+			}
+		}
+		else {
+			$target = $file;
+			$target =~ s/(.*)\.(.*)/$1.o/;
+			if (defined($target_dir)) {
+				$target =~ s/^.*\/([^\/]+)$/$1/;
+				if ($target_dir) {
+					$target = $target_dir."/".$target;
+				}
+			}
+			do output_dependlist($target);
+		}
+	}
+}

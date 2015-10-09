@@ -1,0 +1,263 @@
+#! /usr/bin/perl
+#
+#  TOPPERS Software
+#      Toyohashi Open Platform for Embedded Real-Time Systems
+# 
+#  Copyright (C) 2003 by Embedded and Real-Time Systems Laboratory
+#                              Toyohashi Univ. of Technology, JAPAN
+#  Copyright (C) 2005-2007 by Embedded and Real-Time Systems Laboratory
+#              Graduate School of Information Science, Nagoya Univ., JAPAN
+# 
+#	The above copyright holders grant permission gratis to use,
+#	duplicate, modify, or redistribute (hereafter called use) this
+#	software (including the one made by modifying this software),
+#	provided that the following four conditions (1) through (4) are
+#	satisfied.
+#
+#	(1) When this software is used in the form of source code, the above
+#    	copyright notice, this use conditions, and the disclaimer shown
+#    	below must be retained in the source code without modification.
+#
+#	(2) When this software is redistributed in the forms usable for the
+#    	development of other software, such as in library form, the above
+#    	copyright notice, this use conditions, and the disclaimer shown
+#    	below must be shown without modification in the document provided
+#    	with the redistributed software, such as the user manual.
+#
+#	(3) When this software is redistributed in the forms unusable for the
+#    	development of other software, such as the case when the software
+#    	is embedded in a piece of equipment, either of the following two
+#   	 conditions must be satisfied:
+#
+#		(a) The above copyright notice, this use conditions, and the
+#         	disclaimer shown below must be shown without modification in
+#     		the document provided with the redistributed software, such as
+#      		the user manual.
+#
+# 		(b) How the software is to be redistributed must be reported to the
+#     		TOPPERS Project according to the procedure described
+#     		separately.
+#
+#	(4) The above copyright holders and the TOPPERS Project are exempt
+#    	from responsibility for any type of damage directly or indirectly
+#   	caused from the use of this software and are indemnified by any
+#    	users or end users of this software from any and all causes of
+#    	action whatsoever.
+#
+#	THIS SOFTWARE IS PROVIDED "AS IS." THE ABOVE COPYRIGHT HOLDERS AND
+#	THE TOPPERS PROJECT DISCLAIM ANY EXPRESS OR IMPLIED WARRANTIES,
+#	INCLUDING, BUT NOT LIMITED TO, ITS APPLICABILITY TO A PARTICULAR
+#	PURPOSE. IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS AND THE
+#	TOPPERS PROJECT BE LIABLE FOR ANY TYPE OF DAMAGE DIRECTLY OR
+#	INDIRECTLY CAUSED FROM THE USE OF THIS SOFTWARE.
+# 
+#  @(#) $Id: genrename 509 2007-08-22 23:09:56Z hiro $
+# 
+
+#
+#  add prefix string
+#
+sub prefix_string {
+	local($sym) = @_;
+
+	if ($sym =~ /[a-z]/) {
+		return("_kernel_");
+	}
+	else {
+		return("_KERNEL_");
+	}
+}
+
+#
+#  generate rename definitions
+#
+sub generate_define
+{
+	local($sym, $prefix) = @_;
+
+	print FILE "#define ",$prefix,$sym;
+	print FILE "\t" if (length($prefix.$sym) < 4);
+	print FILE "\t" if (length($prefix.$sym) < 8);
+	print FILE "\t" if (length($prefix.$sym) < 12);
+	print FILE "\t" if (length($prefix.$sym) < 16);
+	print FILE "\t" if (length($prefix.$sym) < 20);
+	print FILE "\t" if (length($prefix.$sym) < 24);
+	print FILE "\t",$prefix,do prefix_string($sym),$sym,"\n";
+}
+
+#
+#  generate undef
+#
+sub generate_undef
+{
+	local($sym, $prefix) = @_;
+
+	print FILE "#undef ",$prefix,$sym,"\n";
+}
+
+#
+#  generate include directive
+#
+sub generate_include
+{
+	local($file, $prefix) = @_;
+
+	$file =~ s/([>"])$/_$prefix.h$1/;
+	$includes .= "#include ".$file."\n";
+}
+
+#
+#  error check
+#
+if ($#ARGV != 0) {
+	die "Usage: genrename <prefix>\n";
+}
+
+#
+#  initialization
+#
+@syms = ();
+$name = $ARGV[0];
+$NAME = $name; $NAME =~ y/a-z/A-Z/;
+
+$infile = $name."_rename.def";
+$header_defsym = "TOPPERS_".$NAME."_RENAME_H";
+
+#
+#  read symbol list
+#
+open(INFILE, $infile) || die "Cannot open $infile";
+while ($line = <INFILE>) {
+	chomp $line;
+	@syms = (@syms, $line);
+}
+close(INFILE);
+
+#
+#  generate ???_rename.h
+#
+$includes = "";
+$file = $name."_rename.h";
+open(FILE, "> ".$file);
+
+print FILE <<END;
+/* This file is generated from $infile by genrename. */
+
+#ifndef $header_defsym
+#define $header_defsym
+
+END
+
+foreach $sym (@syms) {
+	if ($sym =~ /^#(.*)$/) {
+		print FILE "/*\n";
+		print FILE " * ",$1,"\n";
+		print FILE " */\n";
+	}
+	elsif ($sym =~ /^INCLUDE[ \t]+(.*)$/) {
+		do generate_include($1, "rename");
+	}
+	elsif ($sym ne "") {
+		do generate_define($sym, "");
+	}
+	else {
+		print FILE "\n";
+	}
+}
+
+print FILE <<END;
+
+#ifdef TOPPERS_LABEL_ASM
+
+END
+
+foreach $sym (@syms) {
+	if ($sym =~ /^#(.*)$/) {
+		print FILE "/*\n";
+		print FILE " * ",$1,"\n";
+		print FILE " */\n";
+	}
+	elsif ($sym =~ /^INCLUDE[ \t]+(.*)$/) {
+		# do nothing
+	}
+	elsif ($sym ne "") {
+		do generate_define($sym, "_");
+	}
+	else {
+		print FILE "\n";
+	}
+}
+
+print FILE <<END;
+
+#endif /* TOPPERS_LABEL_ASM */
+
+$includes
+#endif /* $header_defsym */
+END
+
+#
+#  generate ???_unrename.h
+#
+$includes = "";
+$file = $name."_unrename.h";
+open(FILE, "> ".$file);
+
+print FILE <<END;
+/* This file is generated from $infile by genrename. */
+
+/* This file is included only when $name\_rename.h has been included. */
+#ifdef $header_defsym
+#undef $header_defsym
+
+END
+
+foreach $sym (@syms) {
+	if ($sym =~ /^#(.*)$/) {
+		print FILE "/*\n";
+		print FILE " * ",$1,"\n";
+		print FILE " */\n";
+	}
+	elsif ($sym =~ /^INCLUDE[ \t]+(.*)$/) {
+		do generate_include($1, "unrename");
+	}
+	elsif ($sym ne "") {
+		do generate_undef($sym, "");
+	}
+	else {
+		print FILE "\n";
+	}
+}
+
+print FILE <<END;
+
+#ifdef TOPPERS_LABEL_ASM
+
+END
+
+foreach $sym (@syms) {
+	if ($sym =~ /^#(.*)$/) {
+		print FILE "/*\n";
+		print FILE " * ",$1,"\n";
+		print FILE " */\n";
+	}
+	elsif ($sym =~ /^INCLUDE[ \t]+(.*)$/) {
+		# do nothing
+	}
+	elsif ($sym ne "") {
+		do generate_undef($sym, "_");
+	}
+	else {
+		print FILE "\n";
+	}
+}
+
+print FILE <<END;
+
+#endif /* TOPPERS_LABEL_ASM */
+
+$includes
+#endif /* $header_defsym */
+END
+
+close(FILE);
