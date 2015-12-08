@@ -1,0 +1,3379 @@
+
+		TOPPERS/ASP内核
+		目标依赖部分移植指南
+
+		对应版本: Release 1.7.0
+		最终更新: 2011年4月10日 
+
+本文档为把TOPPERS/ASP内核移植到TOPPERS/ASP内核尚未支持的目标系统时所必需
+的目标依赖部分的具体实现方法的说明.由华中科技大学瑞萨高级嵌入式控制器实
+验室组织翻译,主要参与人:任慰,王彦明,方华启,汪卓
+
+--------------------------------------------------------------------------------
+TOPPERS/ASP Kernel
+     Toyohashi Open Platform for Embedded Real-Time Systems/
+     Advanced Standard Profile Kernel
+
+ Copyright (C) 2005-2011 by Embedded and Real-Time Systems Laboratory
+             Graduate School of Information Science, Nagoya Univ., JAPAN
+ 
+用户只要符合以下的(1)－(4)条件,或者符合Free Software Foundation机构公布
+的GNU General Public License第2版中记述的条件,上述著作权所有者将无偿同意
+本软件(含本软件修正品,以下同)的使用,复制,修改及再分发(以下统称为使用).
+
+(1).以源代码形式使用本软件时,须原封不动地把著作权申明,使用条件及以下的无
+	保障规定放入源代码中.
+
+(2).以程序库等能被其它软件调用的形式再分发时,须在再分发说明书(使用说明等)
+	中,写入 上述的著作权申明,使用条件及以下的无保障规定.
+
+(3).把本软件嵌入机器等,以不能被其它软件调用的形式使用本软件时,须满足以下
+	条件中的一条.
+	(a).再分发时使用书(使用说明等)中,须写入上述著作权申明,使用条件及以下
+	的无保障规定.
+	(b).以其它形式再分发本软件时,须向TOPPERS协会报告. 
+
+(4).因使用本软件而引起的直接或间接的损失,均不得向上述著作权所有者及
+	TOPPERS协会要求承担责任.
+
+本软件以无保障方式提供给社会.上述著作权所有者及TOPPERS协会对本软件及能
+否使用本软件的 探讨均不负任何责任.同时,对因使用上述软件而引起的直接或间
+接的损失,均不负任何责任.
+
+ $Id: porting.txt 2064 2011-05-01 08:09:00Z ertl-hiro $
+--------------------------------------------------------------------------------
+ 
+目录
+1. 公共部分
+	1.1 目标依赖部分的构成
+	1.2 防止命名冲突
+	1.3 防止多重包含
+	1.4	在汇编语言中使用C语言头文件
+	1.5 include的记述方法
+	1.6	临界区出入口处理实现的相关限制
+2. 系统构建环境的目标依赖部分
+	2.1	目标简称和目标依赖部分所在目录
+	2.2	Makefile的目标依赖部分
+	2.3	开发环境名和相应命令的设定
+	2.4	编译选项与目标文件的设定
+	2.5	偏移文件生成方法
+		2.5.1 使用配置器生成
+		2.5.2 使用makeoffset.c和genoffset生成
+	2.6	链接方法的设定
+	2.7	依赖关系定义
+	2.8	其他设定
+3. TOPPERS共通定义的目标依赖部分
+	3.1	目标识别宏
+	3.2	整数型的最大值,最小值和位数
+	3.3	指定大小的整数型定义,及其最大,最小值和整形常量生成宏
+	3.4	指定大小的浮点型定义,及其最大值,最小值
+	3.5	编译器扩展功能宏定义
+	3.6	标准定义的覆盖
+	3.7	断言(assert)相关的定义
+4. 系统接口层(System Interface Layer, SIL)的目标依赖部分
+	4.1	全中断锁定状态管理
+	4.2	轻微延迟
+	4.3	处理器大小端设定
+	4.4	内存空间访问函数
+	4.5	I/O空间访问函数
+5. 内核API的目标依赖部分
+	5.1 由目标定义所支持的功能
+	5.2 中断优先级范围
+	5.3 系统时钟(time tick)的定义
+	5.4	需要保证存储空间的类型定义
+	5.5 位模式(bit pattern)的位数
+	5.6 确保内存区域的宏定义
+	5.7 任务超时运行处理函数(overrun handler)功能扩展定义(可选)
+6. 内核实现的目标依赖部分
+	6.1	内核实现的目标依赖部分的共通部分
+		6.1.1 内核实现的目标依赖部分的构成要素
+		6.1.2 目标依赖部分函数命名规则	
+	6.2	追踪日志(tracelog)功能对应
+	6.3	系统状态管理
+		6.3.1 全中断锁定状态的管理
+		6.3.2 上下文(context)的管理
+		6.3.3 CPU锁定状态的管理
+	6.4	与中断相关联的系统状态管理
+		6.4.1 中断优先级屏蔽管理
+		6.4.2 中断请求禁止标志管理
+		6.4.3 清除中断请求
+		6.4.4 查询中断请求
+		6.4.5 中断处理函数的开始和结束处理
+	6.5	任务切换器
+		6.5.1 任务上下文块和任务初始化上下文块
+		6.5.2 任务切换器的主体
+		6.5.3 任务上下文中的任务切换
+		6.5.4 切换器动作开始
+		6.5.5 任务退出并切换
+		6.5.6 任务的起动
+	6.6	中断处理函数
+		6.6.1 中断处理函数出入口处理
+		6.6.2 中断处理函数出入口处理的生成
+		6.6.3 中断处理函数设定
+		6.6.4 中断请求线的属性设定
+		6.6.5 中断管理功能的初始化处理变更
+		6.6.6 默认的中断处理函数
+		6.6.7 内核管理外的中断
+		6.6.8 中断服务例程(interrupt service routine)的生成
+	6.7 CPU异常处理函数和CPU异常发生时的系统状态参照
+		6.7.1 CPU异常处理函数出入口处理
+		6.7.2 CPU异常处理函数出入口处理的生成
+		6.7.3 CPU异常处理函数设定
+		6.7.4 CPU异常管理功能初始化处理变更
+		6.7.5 默认的CPU异常处理函数
+		6.7.6 CPU异常发生时的系统状态参照
+	6.8	内核的起动.结束与堆栈
+	6.9 内核内部的调整
+		6.9.1 位图搜索(bitmap search)
+		6.9.2 位域(bit field)
+	6.10 与内核实现相关的其他定义
+		6.10.1 对象属性的扩展
+		6.10.2 错误检测方法的指定
+		6.10.3 非任务上下文所使用的堆栈
+		6.10.4 空符号定义
+	6.11 与追踪日志(tracelog)功能相关的定义
+		6.11.1 可以获得的追踪日志(tracelog)种类和宏定义
+		6.11.2 记录tracelog的样例代码
+	6.12 内核实现的目标依赖部分重命名
+	6.13 系统时钟驱动
+		6.13.1 系统时钟驱动的构成
+		6.13.2 系统时钟的初始化,结束和中断处理
+		6.13.3 针对性能评价用系统时刻参照功能
+	6.14 任务运行超时定时器驱动(overrun timer)(可选)
+		6.14.1 任务运行超时定时器驱动的构成
+		6.14.2 任务运行超时定时器的操作和中断处理
+	6.15 动态内存管理
+		6.15.1 使用TLSF进行内存管理的例子
+7 配置器设定文件的目标依赖部分
+	7.1 设定文件及其目标依赖部分的位置
+	7.2	第二阶段(pass2)用模板文件的目标依赖部分
+	7.3	第三阶段(pass3)用模板文件的目标依赖部分
+	7.4	cfg1_out.c链接用符号定义文件
+8 系统服务等的目标依赖部分
+	8.0 系统服务的目标依赖部分
+	8.1 系统日志功能的目标依赖部分
+	8.2 系统日志任务的目标依赖部分
+	8.3 串行接口驱动的目标依赖部分
+		8.3.1 变量,数据类型和函数
+		8.3.2 设备服务例程(device service routine)
+		8.3.3 回调例程(callback routine)
+	8.4 内核起动信息输出的目标依赖部分定义
+	8.5 针对内核sample程序和功能测试程序的目标依赖部分定义
+	8.6 运行时间直方图统计模块的目标依赖部分定义
+9 其他
+	9.1 文档
+	9.2 发布包记述文件
+10 参考
+	10.1 目标依赖部分文件一览
+
+1. 公共部分
+
+1.1 目标依赖部分的构成
+
+TOPPERS/ASP内核中与目标相关的代码都位于target目录下,并以硬件加开发环境的
+方式命名,如at91skyeye_gcc特指针对skyeye仿真环境下的at91芯片,开发环境为
+gcc.为了提高代码的复用性,可以对目标相关代码进一步划分,如按照架构->芯片
+的方式划分,该部分代码位于arch目录下,如该目录下的arm_gcc特指针对gcc环境
+下的arm架构的共通部分.在其下,又按照芯片的方式进一步划分,如at91sam7s特指
+针对at91sam7s芯片,common特指针对所有的arm都共通的部分代码.
+
+TOPPERS/ASP内核的目标依赖部分可分为开发环境(Makefile等)的目标依赖部分,
+TOPPERS共通定义的(t_stddef.h)的目标依赖部分,系统访问接口的(SIL,sil.h)的
+目标依赖部分,内核API(kernel.h)的目标依赖部分,内核实现的目标依赖部分(包
+括配置器设定文件的目标依赖部分),系统服务的目标依赖部分和相关文档组成.
+
+1.2	防止命名冲突
+
+由于是TOPPER Project所提供的软件,预定以TOPPERS_为前缀的符号.在头文
+件中记录的,对于应用可以参照的内核内部符号名都以TOPPERS_为前缀.
+
+另外,以__kernel__为前缀的符号,预约给内核内部使用的函数和变量.由于内
+核内部使用的函数名和变量名在链接时可能和应用中所使用的符号名发生冲突,所
+以通过重命名的发生避免此种情况的发生.对于内核内部使用的函数名和变
+量名,在编译时都会加上__kernel__前缀.
+
+1.3	防止多重包含
+
+对于所有的头文件,为了防止多重包含,都含有相应的条件编译以target_config.h
+为例,在文件头部有如下定义.
+
+#ifndef TOPPERS_TARGET_CONFIG_H 
+#define TOPPERS_TARGET_CONFIG_H
+
+在文件尾部有如下定义.
+
+#endif /* TOPPERS_TARGET_CONFIG_H */
+
+1.4	在汇编语言中使用C语言头文件
+
+为了可以在汇编语言中被包含,ASP内核中许多C语言头文件都遵循以下规则进行记
+述.
+
+* 当定义了TOPPERS_MACRO_ONLY宏时,相应C语言头文件中汇编语言所不能解释的
+  部分将被排除,只留下汇编语言所能解释的部分,具体实现如下.
+
+	#ifndef TOPPPERS_MACRO_ONLY
+	汇编语言所不能解释的部分
+	#endif
+
+	汇编语言所能解释的部分
+
+* 对于无符号整数型常量,通常使用UINT_C和ULONG_C之类的宏生成.如在汇编语
+  言中需要使用之类宏时,应重新定义以覆盖C语言头文件中的定义.同时在相应的
+  的C语言头文件中需使用条件编译以避免冲突,具体实现如下.
+
+	#ifndef UINT_C
+	#define UINT_C(val)		(val ## U)		/* 只有C语言可以使用 */
+	#endif /* UINT_C */
+
+	#ifndef ULONG_C
+	#define ULONG_C(val)	(val ## UL)		/* 只有C语言可以使用 */
+
+	#endif /* ULONG_C */
+* 对于在汇编语言中使用的常量,当需要强制类型转换时,需要定义CAST宏.
+
+总之,当在汇编语言中调用ASP内核相应的头文件时,必须先定义宏
+TOPPERS_MACRO_ONLY, UINT_C, ULONG_C和CAST.
+
+1.5 include的记述方法
+
+对于开发环境的标准头文件以及ASP内核根目录下include目录中的头文件,使用
+#include <...>的形式包含.因此需把include目录加入开发环境默认搜索路径.
+
+对于其他头文件,使用#include "..."的形式包含,其具体路径有以下几种形式.
+
+* 对于位于目标依赖部分目录下(target/<目标名>)的头文件,不附加路径,直接
+  使用头文件名,如下.
+	例) #include "target_config.h"
+
+* 对于arch目录下的子目录中的头文件,附加相对arch目录的路径,如下.
+	例) #include "m68k_gcc/prc_config.h"
+
+* 其他场合,附加相对ASP内核根目录(configure脚本所在目录)的路径,如下.
+	例) #include "pdic/upd7201/upd7201.h"
+
+* 对于内核构成文件,调用位于kernel目录下头文件时,不附加路径,直接
+  使用头文件名,如下.
+	例) #include "kernel_impl.h"
+
+总的而言,应把ASP内核根目录,arch目录,kernel目录和目标依赖部分所在目录添加
+到头文件搜索路径中.
+
+1.6	临界区出入口处理实现的相关限制
+
+对于内核中所使用的临界区,其出入口处理的实现,必须满足以下2个条件.
+
+(1-6-1) 当临界区出入口处理执行完毕时,中断必须已经使能或者禁止. 例如有些
+处理器在执行中断使能或禁止处理指令和真实实现中断使能或禁止之间可能存在
+一些延迟,此时必须通过在临界区出入处理中增加NOP指令来填补相应的延迟.
+
+(1-6-2) 当执行临界区出入口处理时,内存中数据可能会发生改变,必须通过某种方
+法告知编译器此种情况.在GNU开发环境下,可以采用以下几种方法.
+
+(a) 执行临界区出入口处理的全部包括其中的核心部分(具体而言,如中断的使能和
+	禁止)不以内联(inline)的形式而以函数的形式实现.
+
+(b) 执行临界区出入口处理的全部包括其中的核心部分以内联汇编的形式实现时,
+	在内联汇编的clobber参数列表中追加"memory".
+
+(c) 执行临界区出入口处理的全部包括其中的核心部分以内联函数或宏的形式实现时,
+	在开头和结尾部分,增加Asm("":::"memory").
+
+关于设定上述条件的理由,请参照<TOPPERS/ASP内核设计备忘>中的<关于内核数据结构
+前的volatile声明>.
+
+
+2. 系统构建环境的目标依赖部分
+
+本节的说明针对GNU开发环境(GCC,GAS,BINUTILS,GNU Make).对于其他开发环境,
+必须做相应的修正.
+
+2.1	目标简称和目标依赖目录
+
+在为新的目标硬件移植内核时,首先应确定目标简称.目标简称有两部分组成,第 一
+部分为系统简称,第二部分为开发环境简称.这两部分通过"_"连接,目标略 称只能
+由小写英文字符,数字和符号"_"组成.GNU开发环境的简称为"gcc".例如,当系统 简
+称为"dve68k"时,如果采用GNU开发环境,则相应的目标简称为 "dve68k_gcc".
+
+目标依赖文件应位于target目录下以目标简称为名的子目录中.该目录称之为目标
+依赖部分目录.
+
+当把目标依赖部分中的与处理器或芯片相关的部分分离出来时,也应为该部分确定
+简称,称之为处理器或芯片依赖部分简称.该简称同样由两部分组成,第一部分为处
+理器或芯片简称,第二部分为开发环境简称.这两部分通过"_"连接,该简称只能由
+小写英文字符,数字和符号"_"组成. 例如,处理名的简称为"m68k" ,采用GNU开发环
+境时,简称名为"m68k_gcc".
+
+当把目标依赖部分中与开发环境相关的部分分离出来时,也应为该部分确定简称,
+称之为开发化境依赖部分简称.例如,采用GNU开发环境时,相应的开发环境简称为
+"gcc".
+
+处理器或芯片依赖部分和开发环境依赖部分的文件置于arch目录下以相应简称名命
+名的子目录中.
+
+当不使用GNU开发环境时,可能需要为相应的开发环境准备如配置脚本(configure),
+sample程序的Makefile(sample/Makefile)和部分工具(utils/makedep)之类的工
+具.此时,这些工具置于目标依赖部分目录下以开发环境命名的子目录中.当需要准
+备相应的开发环境工程文件时,这些工程文件置于目标依赖部分目录下.
+
+2.2	Makefile的目标依赖部分
+
+Makefile的目标依赖部分位于目标依赖部分目录下以Makefile.target命名的文件
+和其所包含的位于处理器依赖部分,芯片依赖部分和开发环境依赖部分的文件中.
+
+2.3	开发环境名和相应命令的设定
+
+Makefile的目标依赖部分中需要为开发环境名和相应命令的设置作如下定义.
+
+(2-3-1) TOOL	开发环境名
+
+定义开发环境名.使用GNU开发环境时,该项定义为gcc.
+
+(2-3-2) GCC_TARGET				GNU开发环境的目标名
+
+当使用GNU开发环境时,此处定义GNU开发环境中一系列工具的的前缀.例如,当
+GCC_TARGET定义为m68k-unknown-elf是,将使用名为m68k-unknown-elf-gcc的编译
+器进行编译.当未作定义时,默认使用名为gcc的编译器.
+
+(2-3-3) CC						C编译器名称
+(2-3-4) CXX						C++编译器名称
+(2-3-5) AS						汇编语言编译器名称
+(2-3-6) LD						链接器名称
+(2-3-7) AR						ar工具名称
+(2-3-8) NM						nm工具名称
+(2-3-9) RANLIB					ranlib工具名称
+(2-3-10) OBJCOPY				objcopy工具名称
+(2-3-11) OBJDUMP				objdump工具名称
+
+当使用GNU以外的开发环境时,需为相应的命令具体名称进行定义.当没有相对应的
+命令时或者命令参数不同时需要修改Makefile中与这些命令有关的部分.
+
+对于GNU开发环境,只需定义GCC_TARGET即可,其他采用默认定义.
+
+2.4	编译选项与目标文件的设定
+
+Makefile目标依赖部分中对以下编译选项进行定义时,采用":="的形式进行定义的
+追加.例如,要为编译器选项追加<-Wall -g -O2>定义时,在Makefile目标依赖部分
+中使用<COPTS := $(COPTS) -Wall -g -O2>进行追加.
+
+(2-4-1) COPTS				编译器选项 
+(2-4-2) CDEFS				宏定义选项(-D选项)
+(2-4-3) INCLUDES			指定头文件所在目录(-I选项)
+(2-4-4) LDFLAGS				链接选项
+(2-4-5) LIBS				指定需要链接的库
+
+上述选项针对所有源文件都是有效的,具体应追加些什么定义依赖于具体目标.
+
+一般情况下,位于目标依赖部分目录中的Makefile.target应包含如下如下记述.
+
+----------------------------------------
+INCLUDES := $(INCLUDES) -I$(TARGETDIR)
+----------------------------------------
+
+TARGETDIR指定目标依赖部分目录的路径.另外在Makefile中的SRCDIR定义了内核根
+目录所在路径(configure脚本所在目录).
+
+推荐为COPTS追加-Werror选项,使能不会错过所有的警告信息.
+
+----------------------------------------
+COPTS := $(COPTS) -Werror
+----------------------------------------
+
+内核编译时,如产生dereferencing type-punned pointer will break
+strict-aliasing rules警告时,可追加以下定义．关于该警告信息的详细说明请
+参照<TOPPERS/ASP内核设计备忘中>中<与类型转换相关的警告信息>一节．
+
+----------------------------------------
+KERNEL_CFLAGS := $(KERNEL_CFLAGS) -fno-strict-aliasing
+----------------------------------------
+
+当需要在C语言符号名中增加"_"前缀以便汇编语言中使用时,在CDEFS中追加
+CDEFS-DTOPPERS_LABEL_ASM.
+
+(2-4-6) SYSSVC_DIR			系统服务所在目录
+(2-4-7) SYSSVC_ASMOBJS		由汇编语言所记述的系统服务目标文件
+(2-4-8) SYSSVC_COBJS		由C语言所记述的系统服务目标文件
+(2-4-9) SYSSVC_CFLAGS		针对系统服务的编译选项
+(2-4-10) SYSSVC_LIBS		指定针对系统服务所需链接的库
+
+依赖于具体目标,当需要指定系统服务所在目录,增加系统服务所需要的目标文件,
+追加相应的编译选项,指定必要的库时,请定义上述选项.
+
+(2-4-11) KERNEL_DIR			内核所在目录
+(2-4-12) KERNEL_ASMOBJS		由汇编语言所记述的内核目标文件
+(2-4-13) KERNEL_COBJS		由C语言所记述的系内核目标文件
+(2-4-14) KERNEL_CFLAGS		针对内核的编译选项
+
+依赖于具体目标,当需要指定内核所在目录,增加内核所需要的目标文件,追加相应
+的编译选项是,请定义上述选项.．
+
+一般情况下,位于目标依赖部分目录中的Makefile.target应包含如下如下记述.
+
+----------------------------------------
+KERNEL_DIR := $(KERNEL_DIR) $(TARGETDIR)
+KERNEL_ASMOBJS := $(KERNEL_ASMOBJS) target_support.o
+KERNEL_COBJS := $(KERNEL_COBJS) target_config.o target_timer.o
+----------------------------------------
+
+(2-4-15) CFG_TABS			针对配置器的选项
+
+依赖于具体目标,当需要为配置器追加选项时,请定义上述选项.具体而言,当存在
+用于配置器的符号取值表的目标依赖部分(target_def.csv)时,需要为配置器追加
+选项.
+
+一般情况下,位于目标依赖部分目录中的Makefile.target应包含如下如下记述.
+
+----------------------------------------
+CFG_TABS := $(CFG_TABS) --cfg1-def-table $(TARGETDIR)/target_def.csv
+----------------------------------------
+
+(2-4-16) CFG1_OUT_LDFLAGS	针对cfg1_out.c的链接选项
+
+依赖于具体目标,当需要指定针对cfg1_out.c的链接选项时,请定义上述选项.
+
+(2-4-17) CFG_OBJS			系统配置所需要的目标文件
+
+依赖于具体目标,当需要追加用于系统配置的目标文件(除了kernel_cfg.o以外)时
+,请定义上述选项,并在Makefile目标依赖部分中增加相应目标文件的生成规则(编
+译选项和依赖关系等等).
+
+(2-4-18) CFG2_OUT
+
+依赖于具体目标,在配置器的第二阶段(pass2)需要生成kernel_cfg.c和
+kernel_cfg.h以外的文件时,请定义上述选项.
+
+(2-4-19) OMIT_WARNING_ALL
+(2-4-20) OMIT_OPTIMIZATION
+
+Makefile模板中为编译选项追加了<-Wall -g -O2>,当不需要-Wall时,在
+Makefile目标依赖部分中把OMIT_WARING_ALL定义为ture,当不需要-O2是,在
+Makefile目标依赖部分中把OMIT_OPTIMIZATION定义为true.
+
+2.5	偏移文件生成方法
+
+汇编代码访问C语言结构体时,需要参照对应结构体成员的偏移值.ASP内核中,需要
+准备专门的结构体成员偏移值表(标准为offset.h)以便汇编代码访问TCB中的成员.
+
+offset.h中偏移值的定义规则是,例如对于TCB中texptn其对应的偏移值定义为
+TCB_texptn,TCB中任务上下文块(tskctxb)中的pc其对应的偏移值定义为TCB_pc.
+以此类推,TCB中的enatex的偏移值,位的位置以及位掩码,定义为
+TCB_enatex,TCB_enatex,TCB_enatex_mask.
+
+offset.h生成方法目前有两种,一种是通过配置器生成,另一种是通过
+makeoffset.c和genoffset生成.第二种方法只适用于GNU开发环境,且未来的版本中
+不再支持.如果在做新的ASP内核移植时,推荐使用第一种方法.
+
+如果无法通过上述两种方法生成offset.h时,可以在目标依赖部分中准备好offset
+.h,并在Makefile的目标依赖部分中定义OMIT_MAKEOFFSET为true.
+
+在ASP内核扩展包中,可能会在TCB中追加新的成员,原有的TCB成员的偏移值可能发
+生变化,此时无论采用哪种方法生成offset.h,都必须考虑到这种变化.
+
+2.5.1 使用配置器生成
+
+使用配置器生成是指通过配置器第一阶段(pass1)所生成的cfg1_out.c的目标文件,
+由配置器自动生成offset.h.采用此种方法时,需要在目标依赖部分中准备对应的
+生成模板文件,并在target_cfg1_out.h(或者其下所包含的文件)和
+target_def.csv中增加相应的定义.当这些文件发生变化时,必须确认能否正确地
+生成offset.h.
+
+用于生成offset.h的模板文件的名字为target_offset.tf. 同时,需要在Makefile
+的目标依赖部分中,增加如下定义.
+
+----------------------------------------
+# 用于生成offset.h的模板文件定义
+OFFSET_TF = $(TARGETDIR)/target_offset.tf
+----------------------------------------
+
+生成offset.h的模板文件的大致内容如下.
+
+(1) 包含标准模板文件
+
+应包含生成offset.h的标准模板文件(kernel/genoffset.tf).标准模板文件中包
+含了诸多使用DEFINE函数或DEFINE_BIT函数定义的项.
+
+----------------------------------------
+$ 包含标准模板文件
+$INCLUDE "kernel/genoffset.tf"$
+---------------------------------------
+
+(2) 生成偏移值宏定义
+
+通过使用DEFINE函数生成偏移值宏定义.例如对于TCB任务上下文块(tskctxb)中
+的pc,为了生成相应的偏移值宏定义,应作如下记述.
+
+----------------------------------------
+$ 生成偏移值定义宏
+$DEFINE("TCB_pc", offsetof_TCB_pc)$
+----------------------------------------
+
+此处DEFINE函数的第一个参数为宏名称,第二参数为保存有相应偏移值的配置器变
+量.
+
+同时为了设定保存有相应偏移值的配置器变量的值,需要在target_def.csv中追加
+如下定义.
+
+----------------------------------------
+offsetof_TCB_pc,"offsetof(TCB,tskctxb.pc)"
+----------------------------------------
+
+由于各内核对象初始化块中目标非依赖部分的各项的偏移值记述已经包含在
+kernel/kernel_def.csv中,不需要再在target_def.csv作相应的记述.
+
+(3) 生成位偏移值定义等宏定义
+
+通过DEFINE_BIT函数生成位偏移值,位的位置,位掩码等宏定义.例如,对于TCB中的
+enatex的位偏移值,位的位置和位掩码对应宏定义TCB_enatex, TCB_enatex_bit和
+TCB_enatex_mask, 应作如下记述.
+
+----------------------------------------
+$DEFINE_BIT("TCB_enatex", sizeof_TCB, "B")$
+----------------------------------------
+
+此处DEFINE_BIT函数的第一个参数为相关宏定义的前缀部分,第二个参数为相应结
+构体的大小,第三个参数为当以8bit为单位求相应的位偏移值,位的位置和位掩码
+时为"B",以16bit为单位时为"H",以32bit为单位时为"W".位的位置是以最低位
+(LSB)为0开始计算的.
+
+在target_cfg1_out.h(或者其下所包含的文件)为了求取相应的位偏移值,位的位
+置和位掩码,需要增加相应结构体变量的定义.该结构体变量的名称为相关宏定义
+的前缀部分(DEFINE_BIT函数的第一个参数),并把对应的成员初始化为1,其他初始
+化0,同时为该结构体变量增加const修饰.例如对于TCB中enatex,应追加如下定义.
+(tskctxb的初始值依赖于具体目标).
+
+----------------------------------------
+const TCB	TCB_enatex = {
+	{ NULL, NULL },			/* task_queue */
+	NULL,					/* p_tinib */
+	0U,						/* tstat */
+#ifdef TOPPERS_SUPPORT_MUTEX
+	0U,						/* bpriority */
+#endif /* TOPPERS_SUPPORT_MUTEX */
+	0U,						/* priority */
+	false,					/* acqeue */
+	false,					/* wupque */
+	true,					/* enatex */
+	0U,						/* texptn */
+	NULL,					/* p_winifo */
+#ifdef TOPPERS_SUPPORT_MUTEX
+	{ NULL, NULL },			/* mutex_queue */
+#endif /* TOPPERS_SUPPORT_MUTEX */
+#ifdef TOPPERS_SUPPORT_OVRTIM
+	0U,						/* leftotm */
+#endif /* TOPPERS_SUPPORT_OVRTIM */
+	{ NULL, NULL }			/* tskctxb */
+};
+----------------------------------------
+
+同样,为了求得相应结构体的大小(以上面的sizeof_TCB为例),需要在
+target_def.csv中追加如下记述.
+
+----------------------------------------
+sizeof_TCB,sizeof(TCB)
+----------------------------------------
+
+由于有些记述已经包含在kernel/kernel_def.csv中,不需要再在target_def.csv
+作相应的记述.
+
+最后需要在target_cfg1_out.h中追加如下定义,以确认是否能正常地生成
+offset.h.
+
+----------------------------------------
+const uint8_t	MAGIC_1 = 0x12;
+const uint16_t	MAGIC_2 = 0x1234;
+const uint32_t	MAGIC_4 = 0x12345678;
+----------------------------------------
+
+2.5.2 使用makeoffset.c和genoffset生成
+
+makeoffset.c中包含了offset.h中宏定义的实现,属于目标依赖部分. genoffset
+是用于从由makeoffset.c所生成的目标文件生成offset.h的perl脚本.genoffset
+只适用于GNU开发环境.
+
+构建一个新的makeoffset.c具体可参照既有目标依赖部分中的makeoffset.c中的内
+容,并且需要确认生成的offset.h中的内容是否正确.makeoffset.c中的内容大致
+包含以下几个部分.
+
+(1) 所必须包含的文件
+
+必须包含所要生成偏移量的结构体定义所在的头文件.以获得TCB中相应成员的偏
+移值为例,应包含以下头文件.
+
+#include "kernel_impl.h"
+#include "task.h"
+#include "sil.h"
+
+(2) 偏移量值输出宏定义
+
+定义用于生成结构体中成员偏移量定义的宏(OFFSET_DEF和OFFSET_DEF2).这些宏
+定义无须修正,直接使用已有的定义.
+
+(3) 偏移量值输出函数定义
+
+定义用于生成结构体中成员偏移量定义的函数(makeoffest).对于所需要生成偏移
+量的结构体成员,使用以下宏定义记述.
+
+(2-5-2-1) OFFSET_DEF(TYPE, FIELD)
+
+TYPE为结构体名称,FIELD为需要生成偏移量的成员.该宏定义将生成名为
+TYPE_FIELD的偏移量宏定义.
+
+(2-5-2-2) OFFSET_DEF2(TYPE, FIELD, FIELDNAME)
+
+TYPE为结构体名称,FIELD为需要生成偏移量的成员.该宏定义将生成名为
+TYPE_FIELDNAME的偏移量宏定义.当希望获得位于结构体中的结构体的成员的偏移
+量时,使用此宏定义.
+
+(4) 大小端参照用函数定义
+
+定义SIL中所定义的用于参照大小端的函数(sil_endian).该函数定义无须修正.
+
+(5) 用于输出位偏移值的参照定义
+
+通过定义已初始化的变量用以参照汇编代码中的变量定义指令
+(BIT_REF_4,BIT_REF_2,BIT_REF_1). 这些变量定义无须修正.当目标不支持
+uint8_t型时,需删除BIT_REF_1的定义,当目标的指针类型为64bit时,必须增加
+BIT_REF_8的定义.
+
+(6) 用于输出位偏移值的变量定义
+
+定义用于生成位偏移值,位的位置和位掩码定义的数据类型.对于希望生成这些定
+义的位域,定义如下说明的变量.
+
+假设结构体的数据类型为TYPE,该结构体中位域的名称为FIELD,则需要定义数据类
+型为TYPE,变量名为BIT_xy_TYPE_FIELD的变量,且目标位全部初始化为1,其他位初
+始化为0.此处,x指定大小端,可以为B(大端)或者为L(小端),y指定以几个字节为单
+位求取位偏移值,位的位置和位掩码,如以单个字节为单位(8位)则为B,以2个字节
+为单位(16位)则为H,以4个字节为单位(32位)则为W.
+
+由此,可以生成名为TYPE_FIELD的符号表示位域偏移值,名为TYPE_FIELD_bit的符
+号表示位的位置,名为TYPE_FIELD_mask的符号表示位掩码.对于位的位置,是以
+LSB(最低位)为0位求得的.
+
+2.6 链接方法的设定
+
+(2-6-1) LDSCRIPT			链接脚本名称
+
+当开发环境未提供或者不使用默认的链接脚本时,由目标依赖部分准备链接脚本,
+并设定LDSCRIPT.
+
+(2-6-2) TEXT_START_ADDRESS		TEXT段开始地址
+(2-6-3) DATA_START_ADDRESS		DATA段开始地址
+
+当链接脚本中未指定各段开始地址时,设定TEXT_START_ADDRESS和DATA_START_ADDRESS.
+
+(2-6-4) START_OBJS				最先链接的目标文件
+(2-6-5) END_OBJS				最后链接的目标文件
+
+依赖于具体目标,可能需要指定最先或最后链接额目标文件,一般情况下需要把包
+含程序入口点的目标文件最先链接.
+
+当存在需要最先链接的目标文件时,在Makefile的目标依赖部分中,把相应的目标
+文件名追加到START_OBJS的定义,并定义相应的编译规则,依赖关系的生成和链接
+选项.当存在需要最后链接的目标文件时,在Makefile的目标依赖部分中,把相应的
+目标文件名追加到END_OBJS的定义,并定义相应的编译规则,依赖关系的生成和链
+接选项.同时,为了不链接标准的起动模块(crt0.o),在链接选项中增加-nostdlib.
+同时由于使用了-nostdlib,将不会链接标准库,所以必须在LIBS中增加-lgcc.
+
+例如当程序入口点在start.S中时,Makefile的目标依赖部分中应有如下定义.
+
+----------------------------------------
+# 最先链接的目标文件
+START_OBJS = start.o
+
+# 最先链接的目标文件的编译规则
+$(START_OBJS): %.o: %.S
+	$(CC) -c $(CFLAGS) $(KERNEL_CFLAGS) $<
+
+# 最先链接的目标文件的依赖关系生成
+$(START_OBJS:.o=.d): %.d: %.S
+	@$(PERL) $(SRCDIR)/utils/makedep -C $(CC) $(MAKEDEP_OPTS) \
+		-O "$(CFLAGS) $(KERNEL_CFLAGS)" $< >> Makefile.depend
+
+# 链接选项
+LDFLAGS := -nostdlib $(LDFLAGS)
+LIBS := $(LIBS) -lgcc
+----------------------------------------
+
+另外,对于GNU开发环境,当使用crtbegin.o和crtend.o时,Makefile的目标依赖部
+分中应有如下定义.
+
+----------------------------------------
+# 目标文件名
+START_OBJS = $(shell $(CC) -print-file-name=crtbegin.o)
+END_OBJS = $(shell $(CC) -print-file-name=crtend.o)
+
+# 依赖关系生成
+$(START_OBJS:.o=.d): %.d:
+$(END_OBJS:.o=.d): %.d:
+
+# 链接选项
+LDFLAGS := -nostdlib $(LDFLAGS)
+LIBS := $(LIBS) -lgcc
+----------------------------------------
+
+此时,由于不要编译对应的源文件,不需要对应的编译规则.依赖关系可以为空,但
+不能去除,否则出错.
+
+(2-6-6) HIDDEN_OBJS				即使未指定也要链接的目标文件
+
+----------------------------------------
+# HIDDEN_OBJS中的目标文件
+HIDDEN_OBJS = start.o
+
+# HIDDEN_OBJS的编译规则
+$(HIDDEN_OBJS): %.o: %.S
+	$(CC) -c $(CFLAGS) $(KERNEL_CFLAGS) $<
+
+# HIDDEN_OBJS的依赖关系生成
+$(HIDDEN_OBJS:.o=.d): %.d: %.S
+	@$(PERL) $(SRCDIR)/utils/makedep -C $(CC) $(MAKEDEP_OPTS) \
+		-O "$(CFLAGS) $(KERNEL_CFLAGS)" $< >> Makefile.depend
+
+# 链接选项
+LDFLAGS := -nostdlib $(LDFLAGS)
+LIBS := $(LIBS) -lgcc
+----------------------------------------
+
+2.7 依赖关系的定义
+
+针对配置器的各个阶段,定义相应目标依赖部分文件依赖性.具体的对于阶段
+1(phase1),阶段2(pass2)和阶段3(phase3)所依赖的cfg1_out.c,
+kernel_cfg.timestamp,$(OBJFILE)进行记述.
+
+一般情况,在Makefile的目标依赖部分Makefile.target中,增加如下内容.
+
+----------------------------------------
+cfg1_out.c: $(TARGETDIR)/target_def.csv
+kernel_cfg.timestamp: $(TARGETDIR)/target.tf
+$(OBJFILE): $(TARGETDIR)/target_check.tf
+----------------------------------------
+
+2.8 其他设定
+
+(2-8-1) CLEAN_FILES				通过clean删除的文件
+
+如果需要追加通过clean删除的文件,把相应的文件名追加到该定义中.
+
+(2-8-1) REALCLEAN_FILES			通过realclean删除的文件
+
+如果需要追加通过realclean删除的文件,把相应的文件名追加到该定义中.
+
+
+3. TOPPERS共通定义的目标依赖部分
+
+TOPPERS共通定义(t_stddef.h)的目标依赖部分位于target_stddef.h以及其所包含
+的文件中(如处理器或芯片依赖部分和开发环境依赖部分中的头文件).
+	
+3.1	目标识别宏
+
+为了便于应用和系统服务识别目标系统,定义形式为"TOPPERS_"加大写目标简称的
+目标识别宏(例如TOPPERS_DVE68K).
+
+3.2	整数型的最大值,最小值和位数
+
+(3-2-1) INT_MAX				int型最大值(C90标准)
+(3-2-2) INT_MIN				int型最小值(C90标准)
+(3-2-3) UINT_MAX			unsigned int型最大值(C90标准)
+(3-2-4) LONG_MAX			long型最大值(C90标准)
+(3-2-5) LONG_MIN			long型最小值(C90标准)
+(3-2-6) ULONG_MAX			unsigned long型最大值(C90标准)
+(3-2-7) CHAR_BIT			char型的位数(C90标准)
+
+通过这些宏定义确定整数型的最大,最小值和位数.
+
+这些宏定义符合C90标准,如果开发环境符合C90标准,并且有limits.h,可以不需要
+这些宏定义,包含limits.h即可.
+
+3.3	指定大小的整数型定义,及其最大,最小值和整形常量生成宏
+
+(3-3-1) int8_t				有符号8位整数(可选,C99标准)
+(3-3-2) uint8_t				无符号8位整数(可选,C99标准)
+(3-3-3) int16_t				有符号16位整数(C99标准)
+(3-3-4) uint16_t			无符号16位整数(C99标准)
+(3-3-5) int32_t				有符号32位整数(C99标准)
+(3-3-6) uint32_t			无符号32位整数(C99标准)
+(3-3-7) int64_t				有符号64位整数(可选,C99标准)
+(3-3-8) uint64_t			无符号64位整数(可选,C99标准)
+(3-3-9) int128_t			有符号128位整数(可选,C99标准)
+(3-3-10) uint128_t			无符号128位整数(可选,C99标准)
+(3-3-11) int_least8_t		8位以上有符号整数(C99标准)
+(3-3-12) uint_least8_t		8位以上无符号整数(C99标准)
+(3-3-13) intptr_t			大小与指针一致的有符号整数(C99标准)
+(3-3-14) uintptr_t			大小与指针一致无符号整数(C99标准)
+(3-3-15) INT8_MAX			int8_t型最大値(可选,C99标准)
+(3-3-16) INT8_MIN			int8_t型最小値(可选,C99标准)
+(3-3-17) UINT8_MAX			uint8_t型最大値(可选,C99标准)
+(3-3-18) INT16_MAX			int16_t型最大値(C99标准)
+(3-3-19) INT16_MIN			int16_t型最小値(C99标准)
+(3-3-20) UINT16_MAX			uint16_t型最大値(C99标准)
+(3-3-21) INT32_MAX			int32_t型最大値(C99标准)
+(3-3-22) INT32_MIN			int32_t型最小値(C99标准)
+(3-3-23) UINT32_MAX			uint32_t型最大値(C99标准)
+(3-3-24) INT64_MAX			int64_t型最大値(可选,C99标准)
+(3-3-25) INT64_MIN			int64_t型最小値(可选,C99标准)
+(3-3-26) UINT64_MAX			uint64_t型最大値(可选,C99标准)
+(3-3-27) INT128_MAX			int128_t型最大値(可选,C99标准)
+(3-3-28) INT128_MIN			int128_t型最小値(可选,C99标准)
+(3-3-29) UINT128_MAX		uint128_t型最大値(可选,C99标准)
+(3-3-30) INT_LEAST8_MAX		int_least8_t型最大値(C99标准)
+(3-3-31) INT_LEAST8_MIN		int_least8_t型最小値(C99标准)
+(3-3-32) UINT_LEAST8_MAX	uint_least8_t型最大値(C99标准)
+(3-3-33) INT8_C(val)		int_least8_t型常量生成宏(C99标准)
+(3-3-34) UINT8_C(val)		uint_least8_t型常量生成宏(C99标准)
+(3-3-35) INT16_C(val)		int16_t型常量生成宏(C99标准)
+(3-3-36) UINT16_C(val)		uint16_t型常量生成宏(C99标准)
+(3-3-37) INT32_C(val)		int32_t型常量生成宏(C99标准)
+(3-3-38) UINT32_C(val)		uint32_t型常量生成宏(C99标准)
+(3-3-39) INT64_C(val)		int64_t型常量生成宏(可选,C99标准)
+(3-3-40) UINT64_C(val)		uint64_t型常量生成宏(可选,C99标准)
+(3-3-41) INT128_C(val)		int128_t型常量生成宏(可选,C99标准)
+(3-3-42) UINT128_C(val)		uint128_t型常量生成宏(可选,C99标准)
+
+通过这些宏定义确定指定大小的整数型定义,及其最大,最小值和整形常量生成.
+
+这些宏定义符合C99标准,如果开发环境符合C99标准,并且有stdint.h,可以不需 要
+这些宏定义,包含stdint.h即可.
+
+上述宏定义中可选部分,只有当编译器支持的时候才需要定义. 
+
+3.4	指定大小的浮点型定义,及其最大值,最小值
+
+(3-4-1) float32_t			IEEE754标准32位単精度浮点数(可选)
+(3-4-2) double64_t			IEEE754标准64位倍精度浮点数(可选)
+(3-4-3) FLOAT32_MIN			float32_t型最小正規化的正浮点数(可选)
+(3-4-4) FLOAT32_MAX			float32_t型最大浮点数(可选)
+(3-4-5) DOUBLE64_MIN		double64_t型最小正規化的正浮点数(可选)
+(3-4-6) DOUBLE64_MAX		double64_t型最大浮点数(可选)
+
+通过这些宏定义确定指定大小的浮点型定义,及其最大值,最小值.
+
+上述宏定义中可选部分,只有当编译器支持的时候才需要定义. 
+
+3.5	编译器扩展功能的的宏定义
+
+对于编译器扩展功能,必须包含以下宏定义.
+
+(3-5-1) inline(可选,默认未定义)
+(3-5-2) Inline(可选,默认为static inline)
+
+通过上述宏定义内联函数. Inline定义为局部内联函数.
+
+(3-5-3) asm(可选,默认未定义)
+(3-5-4) Asm(可选,默认未定义)
+
+通过上述宏定义内联汇编.Asm表示编译时不做优化.这些宏只在目标依赖部分中使
+用,如未使用则不需定义.
+
+(3-5-5) offsetof(structure, field)(可选,有默认定义)
+
+获得结构体structure中成员field的偏移量.
+
+(3-5-6) alignof(type)(可选,有默认定义)
+
+获得类型type的地址对齐值
+
+(3-5-7) NoReturn(可选,默认未定义)
+
+定义没有返回的函数.该宏只在目标依赖部分中使用,如未使用则不需定义.
+
+3.6	标准定义的覆盖
+
+如需覆盖t_stddef.h中的TOPPERS共通定义中的标准定义部分,定义以下宏.
+
+(3-6-1) TOPPERS_bool(可选,默认为int)
+(3-6-2) TOPPERS_size(可选,默认为uintptr_t)
+(3-6-3) TOPPERS_fp(可选,默认为函数指针)
+
+这些宏定义为boot_t,SIZE,FP的数据类型 
+
+(3-6-4) UINT_C(val)(可选,默认为附加U)
+(3-6-5) ULONG_C(val)(可选,默认为附加UL)
+
+这些宏定义用于生成unsigned uint型,unsigned long型常量．
+
+(3-6-6) NULL(可选,默认为0)
+
+对于符合C90的C语言环境,由于 stddef.h中包含了NULL定义,可以在此处包含
+stddef.h.
+
+(3-6-7) ERCD(mercd, sercd)(可选)
+(3-6-8) MERCD(ercd)(可选)
+(3-6-9) SERCD(ercd)(可选)
+
+ERCD用以从主错误码(mercd)和子错误码(sercd)合成错误码,MERCD用以从错误码
+(ercd)中分离主错误码,SERCD用以从错误码(ercd)中分离子错误码.在上述宏定义
+中,假定有符号整数以2的补码形式表现,右移运算符(>>)为逻辑右移.对于大多数
+编译器而言,该假定是成立的,如不成立,需要在目标依赖部分中重新定义上述宏.
+
+(3-6-10) ALIGN_TYPE(addr, type)(可选)
+
+判断地址addr是否与类型type对齐.
+
+3.7	断言(assert)相关的定义
+
+t_stddef.h中有assert定义,assser失败时(assert的参数为false)的处理依赖于
+具体目标.下述宏定义在assert宏使用之前,也可以包含于在t_stddef.h后面的头文
+件中.当assert无效时(定义了NDEBUG),可以不需要下述宏定义.
+
+(3-7-1) TOPPERS_assert_abort(void)
+
+assert失败时,停止程序运行的函数.在系统开发中,可以通过该函数把系统控制权
+转交给调试器(Debugger).系统工作时,可用于异常处理.
+
+(3-7-2) TOPPERS_assert_fail(exp, file, line)
+
+assert失败时,记录或输出相关信息.当使用系统日志服务,该宏定义已包含于
+t_syslog.h中,目标依赖部分可以不需定义.
+
+
+4. 系统接口层(System Interface Layer, SIL)的目标依赖部分
+
+系统接口层(System Interface Layer, SIL)的目标依赖部分位于target_sil.h以
+及其所包含的文件中(如处理器或芯片依赖部分和开发环境依赖部分中的头文件).
+
+SIL中的服务在任何系统状态下都可以调用,因此在实现SIL中的函数时,必须保证
+这一点.
+
+4.1	全中断锁定状态管理
+
+SIL的目标依赖部分应提供禁止全部中断和恢复原先状态的函数.判别是否处于全
+中断锁定状态的函数不要求必须提供.
+
+即使不使用内核,SIL中的功能也应能使用.所以在实现相应的全部中断锁定和恢复
+原先状态的函数时,应不使用任何内核功能,而直接操作处理器相关资源,且在全部
+中断已经锁定或者CPU上锁的情况下也应能执行.
+
+对于带有保护功能的内核而言,用户任务无法直接访问处理器的相关资源,所以无
+法使用全中断锁定状态管理相关功能.如果使用,其产生的后果依赖于具体目标,一
+般而言会触发相关的CPU异常.
+
+(4-1-1) SIL_PRE_LOC
+
+用于保存全中断锁定状态的变量宏定义.形式为类型名+变量名.为了防止命名冲突
+,一般在变量名前增加TOPPERS_前缀.
+
+(4-1-2) SIL_LOC_INT()
+
+把当前全中断锁定状态保存于SIL_PRE_LOC中,并禁止全部中断.该宏定义的实现
+必须符合<1.6 临界区出入口处理实现的相关限制>中的记述.
+
+(4-1-3) SIL_UNL_INT()
+
+恢复保存于SIL_PRE_LOC中的原来的全中断锁定状态.该宏定义的实现必须符合
+<1.6 临界区出入口处理实现的相关限制>中的记述.
+
+4.2	轻微延迟
+
+(4-2-1) void sil_dly_nse(ulong_t dlytim)
+
+至少延迟dlytim以上时间(单位:纳秒),实现方式为指令循环等等.
+
+其标准实现为通过汇编语言实现下述函数的等价处理.由于使用的是汇编语言所以
+不受编译器优化影响,并且为了较少cache所带来影响,在实现时应尽量减少对内存
+的访问.
+
+	void sil_dly_nse(ulong_t dlytim)
+	{
+		dlytim -= SIL_DLY_TIM1;
+		if (结果大于0) {
+			do {
+				dlytim -= SIL_DLY_TIM2;
+			} while (结果大于0);
+		}
+	}
+
+该函数的具体动作为,当dlytim小于SIL_DLY_TIM1时,最初的判断不成立,函数立刻
+返回,当dlytim位于SIL_DLY_TIM1和SIL_DLY_TIM1+SIL_DLY_TIM2之间时,第二个if
+判断不成立,函数返回.当dlytim大于SIL_DLY_TIM1+SIL_DLY_TIM2时,每次循环减
+少SIL_DLY_TIM2,直至dlytim小于SIL_DLY_TIM2.
+
+该函数虽然属于SIL,但实现时是一般不放在SIL的目标依赖部分中实现(只有头文
+件),而是放在内核实现的目标依赖部分中(target_support.s或者是
+target_conifg.c)实现.
+
+(4-2-2) SIL_DLY_TIM1(可选)
+(4-2-3) SIL_DLY_TIM2(可选)
+
+这两个常量的宏定义依赖于具体目标,用以实现指令执行时间到纳秒的转换.
+
+SIL_DLY_TIME2的值应为do_while循环一次所用时间,对于大部分指令集而言,其为
+1条减法指令和1条跳转指令的执行时间.SIL_DLY_TIME1为进行一次函数调用所需
+时间.
+
+为了方便得出上述两个常量,可以使用test目录下的test_dlynse程序.当
+test_dlynse执行后将输出下述信息.
+
+-- for fitting parameters --
+sil_dly_nse(0): 430 OK
+sil_dly_nse(420): 430 OK
+sil_dly_nse(510): 520 OK
+sil_dly_nse(600): 610 OK
+<...>
+-- for checking boundary conditions --
+sil_dly_nse(421): 520 OK
+sil_dly_nse(511): 610 OK
+sil_dly_nse(601): 700 OK
+
+"for fitting parameters"下面输出的信息为不同dlytim时,sil_dly_nse实际消
+耗的时间,通过不断调整SIL_DLY_TIM1和SIL_DLY_TIM2,使得dlytim和实际消耗时
+间尽量接近."for checking boundary conditions"下面输出的信息为对边界条件
+的检查,即要确保":"右边的值要比dlytim大.
+
+4.3	处理器大小端设定
+
+(4-3-1) SIL_ENDIAN_BIG (可选)
+(4-3-2) SIL_ENDIAN_LITTLE (可选)
+
+依据目标处理器的实际情况,定义大小端相关宏.
+
+(4-3-3) TOPPERS_SIL_REV_ENDIAN_UINT16 (可选)
+(4-3-4) TOPPERS_SIL_REV_ENDIAN_UINT32 (可选)
+
+反转16位和32位无符号整数大小端的宏定义.当目标处理器有相应的大小端反转指
+定时,使用相应的指令,否则使用默认定义.
+
+4.4 内存空间访问函数
+
+(4-4-1) TOPPERS_OMIT_SIL_ACCESS
+
+当不使用标准的内存空间访问函数而是由目标依赖部分定义时,定义此宏.
+
+(4-4-2) TOPPERS_OMIT_SIL_REH_LEM
+(4-4-3) TOPPERS_OMIT_SIL_WRH_LEM
+(4-4-4) TOPPERS_OMIT_SIL_REH_BEM
+(4-4-5) TOPPERS_OMIT_SIL_WRH_BEM
+(4-4-6) TOPPERS_OMIT_SIL_REW_LEM
+(4-4-7) TOPPERS_OMIT_SIL_WRW_LEM
+(4-4-8) TOPPERS_OMIT_SIL_REW_BEM
+(4-4-9) TOPPERS_OMIT_SIL_WRW_BEM
+
+当不使用标准的sil_reh_lem,sil_wrh_lem,sil_reh_bem,sil_wrh_bem,
+sil_rew_lem,sil_wrw_lem,sil_rew_bem,sil_wrw_bem而使用目标依赖部分定义时
+,定义相应的宏.
+
+4.5 I/O空间访问函数
+
+当目标处理器的I/O空间和内存空间不同时,为了访问I/O空间中的设备寄存器,需
+要在目标依赖部分中准备相应的I/O空间访问函数,包括sil_reb_iop,sil_wrb_iop,
+sil_reh_iop,sil_wrh_iop,sil_reh_lep,sil_wrh_lep,sil_reh_bep,
+sil_wrh_bep,sil_rew_iop,sil_wrw_iop,sil_rew_lep,sil_wrw_lep,
+sil_rew_bep,sil_wrw_bep.
+
+
+5. 内核API的目标依赖部分
+
+内核API的目标依赖部分位于target_kernel.h以及其所包含的文件中(如处理器或
+芯片依赖部分和开发环境依赖部分中的头文件).
+
+5.1 由目标定义所支持的功能
+
+(5-1-1) TOPPERS_TARGET_SUPPORT_DIS_INT		支持dis_int
+(5-1-2) TOPPERS_TARGET_SUPPORT_ENA_INT		支持ena_int
+(5-1-3) TOPPERS_TARGET_SUPPORT_GET_UTM		支持get_utm
+
+当目标支持dis_int,ena_int,get_utm时,定义上述宏.
+
+5.2 中断优先级范围
+
+(5-2-1) TMIN_INTPRI			中断优先级的最小值(最高优先级)
+(5-2-2) TMAX_INTPRI			中断优先级的最大值(最低优先级)
+
+定义目标系统中内核所能管理的中断优先级最小值(最高优先级)和中断优先级最大
+值(最低优先级).TMAX_INTPRI一般固定为-1,但为了保证对称性,由目标依赖部分
+具体定义.
+
+5.3 系统时钟(time tick)的定义
+
+(5-3-1) TIC_NUME				系统时钟周期(time tick)的分子
+(5-3-2) TIC_DENO				系统时钟周期(time tick)的分母
+
+系统时钟周期以ms为单位,以TIC_NUME/TIC_DENO的形式定义.例如当系统时钟的周
+期为1/30秒时,则TIC_NUME可定义为100,TIC_DENO可定义为3.
+
+系统时钟周期推荐设定为1ms,也即TIC_NUME和TIC_DENO都定义为1.对于仿真环境
+或者低性能的处理器,为了减轻过快的系统时钟所带来的负担,可以设定为更大的
+值,但推荐位1ms的倍数,也即TIC_DENO定义为1.
+
+对于要实现时钟周期可变的系统时钟驱动的场合,可以通过条件编译的形式,即把
+上述宏定义包含于#ifndef TIC_NUME和#endif之间,实现默认值和所需要的值之间
+的切换.
+
+5.4	需要保证存储空间的类型定义
+
+(5-4-1) TOPPERS_STK_T	堆栈空间中单位内存的类型(可选)
+(5-4-2) TOPPERS_MPF_T	固定长内存池中单位内存的类型 (可选)
+
+对于堆栈和固定长内存池,其存储空间标准为intptr_t型数组,即地址是按
+intptr_t对齐.如果希望以更大的单位对齐,如8字节,16字节等等,则需要定义
+上述宏,确保堆栈和固定长内存池,其存储空间为更大单位的数组.
+
+5.5 位模式(bit pattern)的位数
+
+(5-5-1) TBIT_TEXPTN		任务异常模式所占位数(可选)
+(5-5-2) TBIT_FLGPTN		时间表示所占位数(可选)
+
+TBIT_TEXPTN和TBIT_FLGPTN所占位数的标准定义为整数型所占位数,即与整数型的
+sizeof值乘以CHAR_BIT的值一致.对于大部分编译器而言,这个标准定义是成立的.
+假如不是,则需要在目标依赖部分中覆盖上述宏定义,但至少需要16位以上的位数.
+
+5.6 为保证存储空间而准备的宏定义
+
+(5-6-1) TOPPERS_ROUND_SZ(可选)
+(5-6-2) TOPPERS_COUNT_SZ(可选)
+
+TOPPERS_COUNT_SZ(sz, unit)用以获得比sz/unit大的最小整数值,确保获得对齐
+单位为unit的数组,即构成sz大小的内存空间,至少需要多少个unit.
+TOPPERS_ROUND_SZ(sz, unit)则用于使得sz对齐于unit,即使得sz舍入为unit的整
+数倍.
+
+如果标准的TOPPERS_ROUND_SZ和TOPPERS_COUNT_SZ定义不合适时,可以在目标依赖
+部分中重新定义.
+
+5.7 任务超时运行处理函数(overrun handler)功能扩展定义(可选)
+
+overrun handler相关功能在ASP内核扩展包中,如果需要使用,必须完成下述3项.
+
+* 实现本小节所说明的定义
+* 实现第6章中当定义了TOPPERS_SUPPORT_OVRHDR时所需要的代码
+* 实现overrun timer驱动,具体参照<6.14 overrun timer驱动>
+
+(5-7-1) TOPPERS_TARGET_SUPPORT_OVRHDR
+
+如需使用overrun handler功能,定义该宏.
+
+(5-7-2) TMAX_OVRTIM(可选,默认为ULONG_MAX)
+
+目标处理器可以设定的最大超时时间(单位为微秒).
+
+
+6. 内核实现的目标依赖部分
+
+6.1	内核实现的目标依赖部分的共通部分
+
+6.1.1 内核实现的目标依赖部分的构成要素
+
+内核实现的目标依赖部分由以下要素组成.
+
+(a) 内核实现的目标依赖定义
+
+内核实现的非目标依赖部分通过target_config.h以及其所包含的文件(如处理器
+或芯片依赖部分和开发环境依赖部分中的头文件)参照目标依赖部分中的相关定义.
+
+目标的硬件资源(中断号,CPU异常号和设备寄存器地址等等)的定义,对系统服务和
+应用也是有用的.所以一般以单独文件记述,该文件的名字一般为系统简称.h(或者
+是,芯片简称.h,处理器简称.h).
+
+(b) 内核实现的目标依赖实现
+
+该部分包含内核实现的目标依赖部分中的相关变量和函数实现.C语言部分一般在
+target_config.c中实现,汇编语言部分一般在target_support.c中实现.对于处理
+器或芯片依赖部分和开发环境依赖部分,或者是比较复杂的情况下,可能需要多个
+文件实现. 
+
+(c) 内核实现的目标依赖部分重命名记述
+
+对于内核实现的目标依赖部分中需要增加_kernel_前缀的变量或者函数,一般在
+target_rename.def中记述,并通过工具(utils/genrename)生成target_rename.h
+和target_unrename.h.对于处理器或芯片依赖部分和开发环境依赖部分,重命名记
+述是分开的.
+
+(d) 系统时钟驱动
+
+系统时钟驱动(主要用于周期性的调用signal_time以告知内核1个系统时钟tick到
+来了)的实现,头文件和配置文件位于target_timer.c,target_timer.h和
+target_timer.cfg中.系统时钟驱动也有可能在处理器或芯片依赖部分和开发环境
+依赖部分中实现.
+
+当支持overrun handler功能时,需要相同文件中实现相应的任务运行超时定时器
+(overrun timer)驱动(调用call_ovrhdr).
+
+对于只有定义TOPPERS_SUPPORT_OVRHDR后才有效的代码,如果不需要overrun
+handler功能,可以不用实现.
+
+(e) 配置器模板文件
+
+配置器模板文件的目标依赖部分在target_def.csv,target.tf和target_check.tf
+中,具体内容将在第7节中说明.
+
+6.1.2 目标依赖部分函数命名规则
+
+对于目标依赖部分中的函数,以t_开头的,说明必须在任务上下文中调用,以i_开头
+的,说明必须在非任务上下文中调用,以x_开头的,说明任务上下文和非任务上下文
+中都可以调用.
+
+6.2	追踪日志(tracelog)功能对应
+
+内核的追踪日志功能中,如何在切换器,中断处理函数和CPU例外处理函数的开始和
+结束的时候获得相关的的追踪日志的处理,是由目标依赖部分实现.对于大多数目
+标系统而言,这些处理是用汇编语言实现的,且不能使用目标非依赖部分中相关的
+追踪日志宏定义和方法(以宏定义的形式,定义由C语言实现的获得追踪日志的方法).
+
+当在汇编语言中嵌入了获得tarcelog处理时,如果定义了想关的tracelog宏,则不
+管具体宏定义是什么,直接用汇编语言调用与宏定义对应的由C语言实现的获得
+tracelog的相关处理函数
+
+具体而言,如果定义了下表左侧的宏,则意味着用汇编语言实现调用下表右侧的由
+C语言实现的获得tracelog的处理.
+
+	tracelog宏				获得tracelog的相关处理函数
+	-----------------------------------------------
+	LOG_DSP_ENTER			log_dsp_enter(p_runtsk)
+	LOG_DSP_LEAVE			log_dsp_leave(p_runtsk)
+	LOG_INH_ENTER			log_inh_enter(inhno)
+	LOG_INH_LEAVE			log_inh_leave(inhno)
+	LOG_EXC_ENTER			log_exc_enter(excno)
+	LOG_EXC_LEAVE			log_exc_leave(excno)
+
+6.3 系统状态管理
+
+当移植ASP内核到一个新的目标系统时,最重要的任务是在目标硬件(或处理器)
+上实现内核所定义的系统状态.以下的说明,以了解TOPPERS新一代内核中系统状态
+的定义和作用为前提.
+
+6.3.1 全中断锁定状态的管理
+
+全中断锁定状态是指除NMI中断外全部中断被禁止的状态 .管理全中断锁定状态的
+相关功能由SIL提供,内核不管理全中断锁定状态.
+
+当系统处于全中断锁定状态时,不能调用除sns_ker和ext_ker以外的内核服务,如
+果调用则不保证会产生怎样的后果.在sns_ker和ext_ker中,处理相关的追踪日志
+处理和SIL调用外,只有call_exit_kernel.因此除了call_exit_kernel,其他内核
+实现目标依赖部分的函数在实现时不需要考虑全中断锁定的情况.
+
+6.3.2 上下文(context)的管理
+
+ASP内核中,处理单位(任务,中断处理等等)执行的上下文,分为任务上下文和非任
+务上下文两类.
+
+内核实现的目标依赖部分需提供相应的功能以判别处理单位所处的上下文,同时也
+需提供当CPU异常发生时判断是否处于任务上下文中的功能.
+
+在内核实现的目标依赖部分中,中断处理函数和CPU异常处理函数的入口处理中需
+要切换到非任务上下文中,相应的出口处需要返回原先的任务上下文中.另外,在任
+务切换器中在某些情况下,需要切换到非任务上下文.
+
+(6-3-2-1) bool_t sense_context(void)
+
+执行中的处理单位通过该函数判断所处任务上下文,处于任务上下文时返回false,
+处于非任务上下文时返回true.该函数在CPU无论是处于锁定时还是非锁定时都必
+须能够调用.
+
+6.3.3 CPU锁定状态的管理
+
+在内核实现的目标依赖部分中,需要提供CPU锁定,CPU解锁和判断CPU锁定状态的功能.
+
+(6-3-3-1) void t_lock_cpu(void)
+(6-3-3-2) void i_lock_cpu(void)
+(6-3-3-3) void x_lock_cpu(void)
+
+上述函数使得CPU从解锁状态变为锁定状态.这些函数不需要区分在调用前CPU是否
+已经处于锁定状态.
+
+(6-3-3-4) void t_unlock_cpu(void)
+(6-3-3-5) void i_unlock_cpu(void)
+(6-3-3-6) void x_unlock_cpu(void)
+
+上述函数使得CPU从锁定状态变为解锁状态.这些函数不需要区分在调用前CPU是否
+已经处于解锁状态.
+
+在任务上下文中锁定CPU时,只能在任务上下文中解锁CPU,而不能在非任务上下文
+中解锁CPU.换而言之,即t_unlock_cpu只能对应t_lock_cpu,不能在调用
+i_lock_cpu锁定CPU后,通过t_unlock_cpu解锁CPU.
+
+同样,在非任务上下文中锁定CPU时,只能在非任务上下文中解锁CPU,而不能在任务
+上下文中解锁CPU.换而言之,即i_unlock_cpu只能对应i_lock_cpu,不能在调用
+t_lock_cpu锁定CPU后,通过i_unlock_cpu解锁CPU.
+
+以上函数在实现时必须遵循<1.6 临界区实现的一些注意>中的相关约定.
+
+(6-3-3-7) bool_t t_sense_lock(void)
+(6-3-3-8) bool_t i_sense_lock(void)
+(6-3-3-9) bool_t x_sense_lock(void)
+
+这些函数,当CPU处于锁定状态时,返回true,当CPU处于解锁状态时,返回false.
+
+这些函数考虑被调用时系统是否处于全中断锁定状态,以不需要区分全中断锁定状
+态和CPU锁定状态.当不存在除NMI以外的不由内核管理的中断时,全中断锁定状态
+可以等同于CPU锁定状态.
+
+6.4	与中断相关联的系统状态管理
+
+6.4.1 中断优先级掩码管理
+
+在内核实现的目标依赖部分中,需要提供设定和查询中断优先级掩码的功能.
+
+(6-4-1-1) bool_t VALID_INTPRI_CHGIPM(PRI intpri)(可选)
+
+该宏定义判断中断优先级intpri对于chg_ipm是否有效,有效返回true,无效返回
+false.标准而言,对于chg_ipm,当intpri位于TMIN_INTPRI和TIPM_ENALL(=0)之
+间时有效,但对于目标依赖部分,通过重新定义该宏,使得小于 TMIN_INTPRI的值
+也有效 (不能缩小有效值范围).
+
+(6-4-1-2) void x_set_ipm(PRI intpri)
+(6-4-1-3) void t_set_ipm(PRI intpri)
+(6-4-1-4) void i_set_ipm(PRI intpri)
+
+设定当前中断优先级掩码为intpri.
+
+上述函数希望在实现时无论CPU处于锁定状态还是解锁状态都能够调用.对于
+x_set_ipm和t_set_ipm,目标非依赖部分不会在CPU解锁状态下调用,所以只要
+考虑CPU锁定状态下的情况,而对于i_set_ipm,无论CPU处于锁定状态还是解锁状
+态都必须能够调用.
+
+(6-4-1-5) PRI x_get_ipm(void)
+(6-4-1-6) PRI t_get_ipm(void)
+(6-4-1-7) PRI i_get_ipm(void)
+
+返回当前中断优先级屏蔽.
+
+上述函数希望在实现时无论CPU处于锁定状态还是解锁状态都能够调用.对于
+x_get_ipm和t_get_ipm,目标非依赖部分不会在CPU解锁状态下调用,所以只要
+考虑CPU锁定状态下的情况,而对于i_get_ipm,无论CPU处于锁定状态还是解锁状
+态都必须能够调用.
+
+通过中断优先级掩码屏蔽所有由内核管理的中断的状态和CPU锁定状态之间是有区
+别的.具体而言,当在CPU解锁状态下,通过x_set_ipm屏蔽所有由内核管理的中断
+,此时x_sense_lock返回false.
+
+与之相对应,通过中断优先级掩码屏蔽除NMI之外的所有中断和禁止全部中断可以
+是等同的,没有必要区分二者.
+
+6.4.2 中断请求禁止标志管理
+
+在内核实现的目标依赖部分中,需要提供设定和清除单个中断请求禁止标志的功能.
+
+(6-4-2-1) bool_t VALID_INTNO_DISINT(INTNO intno)
+
+该宏定义判断中断号intnto对于dis_int/ena_int是否有效,有效返回true,无效
+返回false.对于无法设定和清除单个中断请求禁止标志的intno,返回false.
+
+(6-4-2-2) bool_t x_disable_int(INTNO intno)
+(6-4-2-3) bool_t t_disable_int(INTNO intno)
+(6-4-2-4) bool_t i_disable_int(INTNO intno)
+
+设定intno指定的中断请求禁止标志,并返回true.如果没有设定intno指定的中断的
+属性,返回false.
+
+这些函数目标非依赖部分不会在CPU解锁状态下调用,所以只要考虑CPU锁定状态下
+的情况.但是,如果存在目标依赖部分在CPU解锁的状态下调用的场合,则必须考虑
+CPU非锁定状态下的情况.
+
+这些函数只有在VALID_INTNO_DISINT(intno)返回为true时,才做相应处理.intno
+不正确时,不需要做相应处理.
+
+当支持dis_int时(定义了TOPPERS_SUPPORT_DIS_INT),必须实现t_disable_int.
+
+(6-4-2-5) bool_t x_enable_int(INTNO intno)
+(6-4-2-6) bool_t t_enable_int(INTNO intno)
+(6-4-2-7) bool_t i_enable_int(INTNO intno)
+
+清除intno指定的中断请求禁止标志,并返回true.如果没有设定intno指定的中断的
+属性,返回false.
+
+这些函数目标非依赖部分不会在CPU解锁状态下调用,所以只要锁定状态下的情况.
+但是,如果存在目标依赖部分在CPU解锁的状态下调用的场合,则必须考虑CPU非锁
+定状态下的情况.
+
+这些函数只有在VALID_INTNO_DISINT(intno)返回为true时,才做相应处理.intno
+不正确时,不需要做相应处理.
+
+当支持ena_int时(定义了TOPPERS_SUPPORT_ENA_INT),必须实现t_enable_int.
+
+6.4.3 中断请求清除
+
+(6-4-3-1) void x_clear_int(INTNO intno)
+(6-4-3-2) void t_clear_int(INTNO intno)
+(6-4-3-3) void i_clear_int(INTNO intno)
+
+当intno所指定的中断为边缘处发时,清除相应的中断请求,当设定为电平触发时,
+则什么也不做.
+
+ASP内核的目标非依赖部分不会调用上述函数,只由目标依赖部分和系统服务可能
+会调用.因此上述函数在何种系统状态下才能调用,需要在目标依赖部分中保持一
+致.
+
+6.4.4 中断请求的查询
+
+(6-4-4-1) bool_t x_probe_int(INTNO intno)
+(6-4-4-2) bool_t t_probe_int(INTNO intno)
+(6-4-4-3) bool_t i_probe_int(INTNO intno)
+
+查询intno所指定的中断的中断请求是否存在,如存在返回ture,如不存在返回
+false.
+
+ASP内核的目标非依赖部分不会调用上述函数,只有目标依赖部分和系统服务可能
+会调用.因此上述函数在何种系统状态下才能调用,需要在目标依赖部分中保持一
+致.
+
+6.4.5 中断处理函数的开始和结束处理
+
+(6-4-5-1) void i_begin_int(INTNO intno)
+
+该函数进行在intno所指定的中断的请求线的中断处理函数中头部所需要的处理.例
+如,对于边沿触发的中断请求,此处需要做的处理为清除中断请求.
+
+该函数在实现时必须考虑能在中断处理函数的头部执行(CPU解锁状态下).
+
+(6-4-5-2) void i_end_int(INTNO intno)
+
+该函数进行在intno所指定的中断的请求线的中断处理函数中尾部所需要的处理.例
+如,在中断处理函数的尾部通知中断控制器(IRC)中断处理结束.
+
+该函数在实现时必须考虑能在中断处理函数的尾部执行(CPU解锁状态下).
+
+对于某些目标而言,在通知中断控制器(IRC)中断处理结束之前,需要禁止全部中断.
+针对这种情况,需要在该函数中禁止中断,并保持中断请求禁止的状态直至返回.但原
+则上在中断处理函数返回之前应该解除中断请求禁止状态,这样不会妨碍在中断处理函
+数出口处理中恢复中断前的状态.如果要在该函数中禁止中断,应确认是否会妨碍
+中断处理函数出口处理中恢复中断前的状态.
+
+6.5	任务切换器
+
+6.5.1 任务上下文块和任务初始化上下文块
+
+(6-5-1-1) TSKCTXB
+
+TSKCTXB位于TCB中用以保存目标依赖的任务上下文部分,标准定义为包含当前任务
+堆栈地址和任务恢复运行时的地址.
+
+(6-5-1-2) USE_TSKINICTXB(可选)
+(6-5-1-3) TSKINICTXB(可选)
+
+当希望在任务初始化块(TINIB)中增加目标依赖部分或者把TINB中任务堆栈地址和
+堆栈大小的信息由目标依赖部分定义时,定义宏USE_TSKINICTXB,并且需要定以
+TSKINICTXB.
+
+当定义宏USE_TSKINICTXB,由于TINIB中不再保存任务堆栈地址和堆栈大小,因此与
+任务堆栈相关的的信息必须在TSKINICTXB中定义.另外,还必须在配置器第二阶段
+(pass2)中所使用到的模板文件的目标非依赖部分中定义生成TSKINICTXB初始化信
+息的GENERATE_TSKINICTXB,在配置器第三阶段(pass3)中所使用到的模板文件的目
+标非依赖部分中定义用于从TSKINICTXB中获得堆栈地址的GET_STK_TSKINICTXB.
+
+
+6.5.2 任务切换器的主体
+
+对于任务切换器(dispatcher),内核的目标非依赖部分不会直接调用,而只有目标
+依赖部分内部会直接调用.dispatcher被调用时,内核状态为任务上下文中,CPU锁
+定,中断优先级屏蔽解除,允许切换.
+
+dispatcher的大致流程如下.
+
+----------------------------------------
+void
+dispatcher(void)
+{
+#ifdef LOG_DSP_ENTER
+	log_dsp_enter(p_runtsk);
+#endif /* LOG_DSP_ENTER */
+  dispatcher_0:
+	while ((p_runtsk = p_schedtsk) == NULL) {
+		如果允许中断,则准备解锁CPU
+		切换至非任务上下文中 ... (*1)
+		do {
+			允许全部中断,等待中断发生 ... (*2)
+			返回中断允许前的状态(=禁止所有由内核管理的中断)
+		} while (!reqflg);
+		reqflg = false;
+		返回任务上下文中 ... (*1)
+		锁定CPU ... (*3)
+	}
+	从p_runtsk所指向的当前所应运行任务的TCB中恢复堆栈指针
+#ifdef LOG_DSP_LEAVE
+	log_dsp_leave(p_runtsk);
+#endif /* LOG_DSP_LEAVE */
+	从p_runtsk所指向的当前所应运行任务的TCB恢复返回地址,并跳转 (*a)
+}
+----------------------------------------
+
+dispatcher中,在等待中断发生之前切换至非任务上下文,是为了强制使中断发生
+后在中断处理函数中无法进行任务上下文切换,并且为中断函数的执行准备好非任
+务上下文用的堆栈.通常,切换到非任务上下文主要是把堆栈切换到非任务上下文
+所用的堆栈,返回任务上下文则主要是把堆栈切换回原来的堆栈.
+
+(*1)中的切换至非任务上下文和返回任务上下文处理也可以放在do-while循环中(
+依赖于具体目标,如果中断的许可/使能和堆栈切换等操作是统一进行的,则效率更高).
+
+(*2)中的允许全部中断和等待中断发生的处理应该是原子的,不可分的,即不能被
+打断,否则当允许中断后,可能在等待中断发生之前,就发生了中断,当中断返回后,
+如果有任务进入可以运行的状态(ready)还是有任务应该执行,处理器都不会立即
+进行切换,而是执行等待中断发生处理.
+
+另外,如果(*2)中,CPU没有相应的等待中断发生指令或者不能执行这样的指令时,
+在允许中断后,不做等待中断的处理,执行到下一步也可以.此时,整个do-while循
+环相当于在等待中断发生.
+
+CPU解锁时一些相关信息(例如,CPU锁定之前的中断优先级掩码)保存于变量中时,
+当(*3)中CPU锁定时,这些变量必须恢复到CPU解锁之前的值.特别是,当这些变量有
+可能在中断处理函数中被修改时,更是需要恢复到CPU解锁之前的值.
+
+dispatcher中等待中断的前提是p_runtsk必须为NULL(上面的相关处理也是以此为
+前提实现的).如果p_runtsk不为NULL,则在中断处理函数中调用iget_tid时实际行
+为与系统规范不一致.
+
+(*a)中,任务的返回地址不保存于TCB中,而是保存于堆栈的情况也有.针对这种情
+况,如果任务在起动之前没有不会使用到任务堆栈,因此任务的起动需要特别处理,
+即此时不能从任务堆栈得到任务的运行地址.
+
+如果dispatcher是用汇编语言实现的,那么其中的获得追踪日志的相关处理需要按
+照<6.2 追踪日志(tracelog)功能对应>中所记述的方法编码.另外,log_dsp_enter
+是在切换前的任务堆栈中执行,log_dsp_leave是在切换后的任务堆栈中执行.
+
+6.5.3 任务上下文中的任务切换
+
+(6-5-3-1) void dispatch(void)
+(6-5-3-2) OMIT_CALLTEX(可选)
+
+任务上下文中的任务切换(dispatch)是针对在任务上下文中执行的系统服务需要进
+行任务切换的场合,且由目标非依赖部分中的系统服务调用.
+
+dispatch被调用时,内核状态为任务上下文中,CPU锁定,中断优先级屏蔽解除,允许
+切换.
+
+dispatch的大致流程如下.
+
+----------------------------------------
+void
+dispatch(void)
+{
+#ifdef TOPPERS_SUPPORT_OVRHDR
+	ovrtimer_stop();					/* 停止overrun timer */
+#endif /* TOPPERS_SUPPORT_OVRHDR */
+	把除暂存寄存器(* scratch register)以外的所有寄存器保存于堆栈中
+	把当前任务(p_runtsk)的堆栈指针保存于TCB中
+	把dispatch_r作为任务返回地址保存于当前任务的TCB中
+	跳转到任务切换器(dispatcher)
+
+  dispatch_r:
+	把除暂存寄存器(scratch register)以外的所有寄存器从堆栈中恢复
+#ifdef TOPPERS_SUPPORT_OVRHDR
+	ovrtimer_start();					/* 起动overrun timer */
+#endif /* TOPPERS_SUPPORT_OVRHDR */
+	calltex(); ... (*b)
+}
+----------------------------------------
+
+dispatch中的暂存寄存器(*)指的是C语言函数调用时所不需要保存的寄存器(对于
+ARM而言,为{r0-r3,sp,pc}).有些场合,对于必须由函数的调用侧保存寄存器,也
+可以称之为caller saved register.
+
+当调用dispatch的任务恢复运行时,其返回地址为dispatch_r.dipatch_r只会从
+dispatcher中跳转过来,此时的内核状态为任务上下文中,CPU锁定,中断优先级屏
+蔽解除,允许切换.
+
+(*b)中calltex可以以inline的形式展开以获得更好的效率,其处理内容为当
+p_runtsk->enatex为true,且p_runtsk->texptn不为0,ipmflg为true时,调用
+call_texrtn.当目标非依赖部分不使用calltex时,可以通过定义OMIT_CALLTEX宏,
+去除目标非依赖部分中的calltex.
+
+6.5.4 切换器动作开始
+
+(6-5-4-1) void start_dispatch(void)
+
+切换开始(start_dispatch)在内核起动时由内核初始化处理部分调用.
+start_dispatch没有返回.
+
+start_dispatch被调用时内核状态为:非任务上下中,除NMI外所有的中断都被屏蔽
+(等同于全中断锁定状态).start_dipatch中将切换到任务上下文中,并且解锁CPU,
+解除所有中断屏蔽.
+
+start_dispatch的大致流程如下.
+
+----------------------------------------
+void
+start_dispatch(void)
+{
+	切换到任务上下文中
+	解锁CPU,解除所有中断屏蔽
+	跳转到dispatcher_0
+}
+----------------------------------------
+
+6.5.5 任务退出并切换
+
+(6-5-5-1) void exit_and_dispatch(void)
+
+任务退出并切换(exit_and_dispatch)是当当前任务结束时被调用.
+exit_and_dispatch没有返回.
+
+exit_and_dispatch被调用时,内核状态为任务上下文中,CPU锁定,中断优先级屏
+蔽解除,允许切换.
+
+exit_and_dispatch的大致流程如下.
+
+----------------------------------------
+void
+exit_and_dispatch(void)
+{
+	跳转到dispatcher
+}
+----------------------------------------
+
+6.5.6 任务的起动
+
+(6-5-6-1) void activate_context(TCB *p_tcb)
+
+任务的起动(activate_contex)在当任务从dormant状态装换到ready状态时被调用.
+activate_contex将初始化TCB所指定的任务的堆栈指针,设定任务返回地址为任务
+初始运行处理(start_r).此时,不使用所指定任务的任务堆栈.
+
+当所指定的任务初始运行时,作为当前任务(p_runtsk)将通过任务切换器跳转到
+start_r中.start_r被调用时,内核状态为任务上下文中,CPU锁定,中断优先级屏
+蔽解除,允许切换.
+
+在start_r中,解除CPU锁定后,将调用任务真正的运行地址,即任务体.当从任务
+体返回后,将调用ext_tsk.
+
+activate_contex和start_r的大致流程如下.
+
+----------------------------------------
+void
+activate_context(TCB *p_tcb)
+{
+	初始化p_tcb所指定的TCB中的堆栈指针
+	把start_r作为任务返回地址登入到当前任务的TCB中 ... (*a)
+	return;
+
+  start_r:
+#ifdef TOPPERS_SUPPORT_OVRHDR
+	ovrtimer_start();					/* 起动overrun timer*/
+#endif /* TOPPERS_SUPPORT_OVRHDR */
+	解锁CPU
+	调用当前任务的起动地址,并把扩展信息作为参数传递进去
+	跳转到ext_tsk ... (*c)
+}
+----------------------------------------
+
+(*c)中可以不直接调用ext_tsk,而把ext_tsk设定为调用任务起动地址时的返回地
+址,这样从任务起动地址返回时,将直接跳转到ext_tsk.
+
+(*a)中,当通过堆栈保存和恢复任务返回地址时,由于此时还未使用任务的堆栈,必
+须做相应的特殊处理.
+
+6.6	中断处理函数
+
+6.6.1 中断处理函数的出入口处理
+
+对于由内核管理的中断的出入口处理,不同的处理器有不同的方法,其大致流程如
+下.
+
+----------------------------------------
+void
+<中断处理函数出入口处理>(void)
+{
+	设定中断优先级屏蔽位,当前中断请求的优先级 (*i)
+	至少禁止由内核管理的中断(锁定CPU)... (*f)
+	保存暂存寄存器到堆栈中
+	if (中断发生在任务上下文中) {
+#ifdef TOPPERS_SUPPORT_OVRHDR
+		ovrtimer_stop();				/* 停止overrun timer */
+#endif /* TOPPERS_SUPPORT_OVRHDR */
+		从任务上下文的堆栈切换到非任务上下文的堆栈
+	}
+
+	解除CPU锁定,使得CPU可以响应并当前中断请求具有更高优先级的中断请求
+#ifdef LOG_INH_ENTER
+	log_inh_enter(中断处理函数号);
+#endif /* LOG_INH_ENTER */
+	调用中断处理函数
+#ifdef LOG_INH_LEAVE
+	log_inh_leave(中断处理函数号);
+#endif /* LOG_INH_LEAVE */
+
+  ret_int:
+	if (中断发生在任务上下文中) {
+		(至少)禁止由内核管理的中断 ... (*d)
+		切换回任务上下文的堆栈和任务上下文  ... (*g)
+		if (reqflg) {
+			reqflg = false;
+			锁定CPU ... (*e)
+			解除所有中断优先级屏蔽,即imp = TIPM_ENAALL ... (*h)
+			if (dspflg && p_runtsk != p_schedtsk) {
+				除暂存寄存器外,把其他所有寄存器保存于堆栈中
+				把当前任务(p_runtsk)的堆栈指针保存于TCB中
+				把ret_int_r作为任务返回地址保存于当前任务的TCB中 ... (*a)
+				跳转到任务切换器(dispatcher)
+
+			  ret_int_r:
+				把除暂存寄存器(scratch register)以外的所有寄存器从堆栈中恢复
+			}
+#ifdef TOPPERS_SUPPORT_OVRHDR
+			ovrtimer_start();			/* 起动overrun timer */
+#endif /* TOPPERS_SUPPORT_OVRHDR */
+			calltex(); ... (*b)
+		}
+#ifdef TOPPERS_SUPPORT_OVRHDR
+		else {
+			ovrtimer_start();			/* 起动overrun timer */
+		}
+#endif /* TOPPERS_SUPPORT_OVRHDR */
+	}
+	从中断处理函数返回后,准备解锁CPU
+	从堆栈中恢复暂存寄存器
+	中断返回
+}
+----------------------------------------
+
+(*i)中的中断优先级屏蔽设定,现在多由处理器中专门的硬件自动完成.
+
+对于处理中断时不切换堆栈指针不能禁止全部中断的处理而言,在(*f)中至少要禁
+止有内核管理的中断,理由如下.
+
+中断处理的入口处,在把堆栈切换至非任务上下文的堆栈之前,如发生嵌套中断,将
+使用被中断的任务的堆栈.对于上述处理器,在堆栈切换之前,可能出现多个嵌套中
+断,嵌套级数可能与中断优先级的级数一样,为了避免出现任务堆栈溢出的情况,在
+确定任务堆栈大小时必须考虑这一情况.为了尽可能减小任务堆栈,在中断处理时尽
+可能的不使用任务堆栈,不希望发生嵌套中断,所以在直到把暂存寄存器保存于堆栈
+之前,至少要禁止由内核管理的中断.但是,如果禁止中断会影响到某些寄存器,相
+应的寄存器在禁止中断之前需保存到堆栈中.
+
+对于内核管理外的中断也是如此.也就是说,为了尽量不使用任务堆栈,禁止内核管
+理外的中断.因此,对于使用了内核管理外的中断场合,(*f)中也希望能禁止所有中
+断.另外,如果长时间的禁止内核管理外的中断将降低内核管理外的中断的响应性,
+用户应当注意此点.对于内核管理外的中断处理,是否需要切换到非任务上下文中的
+堆栈或者专用于内核管理外中断处理的堆栈,这一点不在内核范围内,由用户自己定
+义.
+
+(*d)中只需禁止了由内核管理的中断,没有必要锁定CPU.如果有相应的变量专门保
+存CPU锁定的状态,(*d)中没有必要改变该变量的值,在(*e)中改变更好.
+
+(*g)中任务上下文和堆栈切换处理,对于那些可以在中断返回时自动切换上下文和
+堆栈的处理器,可以在regflg为true时再执行,如果regflg为false,将继续在非任
+务上下文中执行,直到中断返回时,自动回复任务上下文和任务堆栈.
+
+(*e)中的锁定CPU对于跳转到dispatcher和(*b)中的calltex(以及其下所要展开的
+call_texrtn)是必要的.
+
+(*h)中的处理,只限于中断前中断优先级屏蔽全部解除的情况,此处解除全部中断
+优先级屏蔽,相当于返回中断优先级屏蔽中断前的值.这样的处理对于跳转到
+dispatcher和(*b)中的calltex(以及其下所要展开的call_texrtn)是必要的.
+
+当任务在运行时被中断,并在上述中断处理中要跳转到dispatcher时,被中断的任
+务的返回地址设定为ret_int_r,即恢复运行是讲跳到ret_int_r.ret_int_r只能从
+dispatcher中跳转过来,此时的内核状态为为任务上下文中,CPU锁定,中断优先级
+屏蔽解除,允许切换.
+
+当中断处理的出入口是通过汇编语言实现的时候,那么其中的获得追踪日志的相关
+处理需要按照<6.2 追踪日志(tracelog)功能对应>中所记述的方法编码.
+
+6.6.2 中断处理函数的出入口的生成
+
+当中断向量表是通过硬件实现时,从效率上考虑,中断处理出入口处理应为每一个
+中断处理函数单独生成.因此,为了生成中断处理出入口处理,需要准备相应的功能.
+
+下面的宏定义,只在目标非依赖部分的标准中断管理的初始化处理中使用.如果在
+目标依赖部分中准备了中断管理的初始化时,并且不会用到这些宏时,可以不用定义.
+
+(6-6-2-1) INT_ENTRY(inhno, inthdr)
+
+为中断处理函数号为inthno,中断处理函数名为inthdr的中断处理函数生成出入口
+标号.当需要通过INTHDR_ENTRY为每个中断处理函数生成出入口处理时,具体定义如
+下.
+
+#define INT_ENTRY(inhno, inthdr)	_kernel_##inthdr##_##inhno
+
+当不需要通过INTHDR_ENTRY为每个中断处理函数生成出入口处理时,具体定义如下,
+直接返回中断处理函数名.
+
+#define INT_ENTRY(inhno, inthdr)	inthdr
+
+(6-6-2-2) INTHDR_ENTRY(inhno, inhno_num, inthdr)
+
+为中断处理函数号为inthno,中断处理函数名为inthdr的中断处理函数生成出入口.
+inthno_num中在汇编代码中使用的中断处理函数号.当不需要生成中断处理函数
+出入口处理时,该宏定义为空.
+
+6.6.3 中断处理函数设定
+
+(6-6-3-1) bool_t VALID_INHNO_DEFINH(INHNO inhno)(可选)
+
+当inhno作为由DEF_INH所定义的中断处理函数号,为有效值值时返回true,否则返
+回false.
+
+ASP内核的目标非依赖部分中不使用此宏定义,如果目标依赖部分中也不使用此宏
+定义,则不需要准备.
+
+(6-6-3-2) void x_define_inh(INHNO inhno, FP int_entry)
+
+把由inhno所指定的中断处理函数的出入口处理地址定义为int_entry.
+
+该函数只在目标非依赖部分的标准中断管理的初始化处理中使用.如果在目标依赖
+部分中准备了中断管理的初始化时,并且不会用到该函数,可以不用准备.
+
+该函数由于是在目标非依赖部分的内核初始化处理中被调用,在实现时应该考虑能
+在内核初始化的环境下(除NMI外所有的中断都被屏蔽)被调用.
+
+所指定的中断处理函数号对于DEF_INH不是有效值时,没有必要保证动作的有效性(
+例如通过assert报错).因为这个错误将被在配置器的第二阶段(pass2)的模板文件
+的目标依赖部分中所定义的INHNO_DEFINH_VALID检测出来.
+
+6.6.4 中断请求线的属性设定
+
+(6-6-4-1) bool_t VALID_INTNO_CFGINT(INTNO intno)(可选)
+
+intno作为中断号为有效值时返回true,否则返回false.由于CFG_INT中可以指定所
+有的中断号,无论是有效还是不有效,所以需要该宏区分有效的中断号和无效的中断
+号.
+
+ASP内核的目标非依赖部分中不使用此宏定义,如果目标依赖部分中也不使用此宏
+定义,则不需要准备.
+
+(6-6-4-2) void x_config_int(INTNO intno, ATR intatr, PRI intpri)
+
+设定中断号为intno的中断请求线属性为intatr,中断优先级为intpri.
+
+该函数只在目标非依赖部分的标准中断管理的初始化处理中使用.如果在目标依赖
+部分中准备了中断管理的初始化时,并且不会用到该函数,可以不用准备.
+
+该函数由于是在目标非依赖部分的内核初始化处理中被调用,在实现时应该考虑能
+在内核初始化的环境下(除NMI外所有的中断都被屏蔽)被调用.
+
+intatr中可以设定的中断请求线属性如下.
+
+	TA_ENAINT		0x01	清除中断请求禁止标志
+	TA_EDGE			0x02	边沿触发
+
+在目标依赖部分中,可以追加中断请求线属性,预定如下中断请求线属性名.
+
+	TA_POSEDGE				上升沿触发
+	TA_NEGEDGE				下降沿触发
+	TA_BOTHEDGE				双沿触发
+	TA_LOWLEVEL				低电平触发
+	TA_HIGHLEVEL			高电平触发
+
+如果需要追加上述中断请求先属性定义,需要在target_kernel.h(或者其下所包含
+的文件)中增加相关宏定义.同时,为了能够让配置器模板文件参照这些定义,需要
+在target_def.csv(或具有类似功能的文件)中增加相关定义,为了在配置模板文件
+的目标非依赖部分中不产生错误,需要在target.tf(或者其下所包含的文件)中设
+定TARGET_INTART.
+
+所指定的中断号不是有效值时,或者不能把中断请求线的属性设定为相应的值时,
+没有必要保证动作的有效性(例如通过assert报错).这些情况都将作为错误在配置
+器中检出.配置器模板文件的目标非依赖部分将会使用配配置器的第二阶段(pass2)
+的模板文件的目标依赖部分中所定义的INTNO_CFGINT_VALID,
+TARGET_INTART和 INTPRI_CFGINT_VALID检测相关错误.对于不能设定标准中断属性
+(TA_ENAINT,TA_EDGE)或者对于不同的中断请求线中断优先级范围不一样和无法设
+定的属性不一样的情况,必须在配置器模板文件的目标依赖部分中检出.
+
+6.6.5 中断管理功能的初始化处理变更
+
+(6-6-5-1) OMIT_INITIALIZE_INTERRUPT(可选)
+
+当有目标依赖部分实现中断管理功能的初始化,而不使用目标非依赖部分中的标准
+中断管理功能初始化处理时,定义此宏.
+
+当定义OMIT_INITIALIZE_INTERRUPT后,内核的目标非依赖部分中将不会实现
+INHINIB,INIINIB和initialize_interrupt的定义,而且在配置器第二阶段 (pass2)
+的模板文件目标非依赖部分中不会在kernel_cfg.c中生成TNUM_INHNO,
+tnum_inhno, inhinib_table,TNUM_INTNO,tnum_intno和intinib_table的定义,和
+用于生成中断处理函数出入口的相关描述(INTHDR_ENTRY宏列表).但是如果 在配
+置器第二阶段(pass2)的模板文件目标依赖部分中设定了USE_INHINIB_TABLE和
+USE_INTINIB_TABLE,可能会在kernel_cfg.c中生成部分定义和描述.
+
+(6-6-5-2) void initialize_interrupt(void)(可选)
+
+当定义OMIT_INITIALIZE_INTERRUPT后,该函数由目标依赖部分准备,包括相关数 据
+类型,变量和宏定义.
+
+6.6.6 默认中断处理函数
+
+(6-6-6-1) default_int_handler(void)(可选)
+
+当由配置器生成中断处理函数表时,对于没有注册中断处理函数的中断号,将注册
+default_int_handler作为默认中断处理函数.
+
+default_int_handler,默认由目标依赖部分准备,但使用者也可以自定义默认中断
+处理函数.当定义宏OMIT_DEFAULT_INT_HANDLER时,将不使用目标依赖部分中的
+默认中断处理函数,使用者需需准备自定义的默认中断处理函数,函数名为
+_kernel_default_int_handler.
+
+6.6.7 内核管理外的中断
+
+对于内核管理外的中断其中断处理不应该经过内核的中断处理函数出入口.
+
+对于所有的中断都从同一地址开始处理的处理器而言,无法实现不让内核管理外的
+中断处理不应该经过内核的中断处理函数出入口.对于此种情况,应尽早判别中断
+是否有内核管理,然后做不同的处理.具体而言,对于内核管理外的中断出入口处理,
+不停止,启动overrun timer,并且不检查reqflg,不进行任务切换,也不进行任务
+异常处理,并且对于NMI,不做获得追踪日志的处理(log_inh_enter和
+log_inh_leave).
+
+对于内核管理外的中断处理函数,可能会经过内核管理内的中断处理函数出入口处
+理的一部分,此时应尽量减少产生CPU异常的可能性.对于可能会产生的CPU异常,必
+须在目标依赖部分的使用说明中作相应记载.
+
+关于内核管理外的中断设定方法,采用<TOPPERS新一代内核综合规范>中的<2.7.8
+内核管理外中断设定方法>所记述的三种方法中哪一种,依据下面的描述决定.
+
+如采用(a-1)或者(a-2),对于内核管理外的中断,对于无法通过内核API注册中断处
+理函数,设定中断请求线属性的情况,需要在目标依赖部分的使用说明中记述替代方
+法.
+
+如采用(a-1)或者(a-2)并可以通过内核API注册中断处理函数,设定中断请求线属
+性,或者采用(b)时,需要在目标依赖部分中实现相关处理.
+
+对于内核管理外的中断,如支持通过DEF_INH注册中断处理函数,那么下面的设定
+是必要的.
+
+* TARGET_INHATR中增加TA_NONKERNEL．
+
+* 如采用(a-1)或者(a-2),INHNO_DEFINH_VALID中需要包含内核管理外的中断处理
+  函数号,并且在VALID_INHNO_DEFINH中,内核管理外的中断处理函数号应判定为有效值.
+
+* 如采用(a-1)或者(a-2),把内核管理内中断处理函数列入INHNO_FIX_KERNEL中,
+  把内核管理外的中断处理函数列入INHNO_FIX_NOKERNEL中
+
+* 如果要让内核管理外的中断处理函数能通过DEF_INH注册,对于使用标准中断管
+  理功能初始化的场合,需要在x_define_inh中增加对内核管理外中断的支持.
+
+* 对于中断属性设定为TA_NOKERNEL的内核管理外中断,内核中的中断出入口处理
+  需要做修正.对于使用标准中断管理功能初始化的场合,将不为其生成相应的出入
+  口处理,直接调用应用所注册的中断处理函数.由于这样处理是由目标非依赖部
+  分中设定的,不需要在目标依赖部分中作相关设定.
+
+对于内核管理外的中断,如支持通过CFG_INT设定中断请求线属性,那么下面的设定
+是必要的
+
+* 如采用(a-1)或者(a-2),INTNO_CFGINT_VALID中需要包含内核管理外的中断处理
+  函数号,并且在VALID_INTNO_CFGINT中,内核管理外的中断处号应判定为有效值.
+
+* 如采用(a-1)或者(a-2),把内核管理内中断的中断号列入INTNO_FIX_KERNEL中,
+  把内核管理外的中断的中断号列入INTNO_FIX_NOKERNEL中.
+
+* INTPRI_CFGINT_VALID中需包含内核管理外中断的中断优先级.
+
+* 如果对于内核管理外的中断处理函数能通过CFG_INT设定中断请求线属性,对于使
+  用标准中断管理功能初始化的场合,需要在x_config_int中增加对内核管理外中断
+  的支持.
+
+如支持通过chg_ipm屏蔽内核管理外的中断(NMI除外),那么下面的设定是必要的
+
+* 在VALID_INTPRI_CHGIPM中,内核管理外的中断处号应判定为有效值.
+
+* 在t_set_ipm中增加对内核管理外中断的支持.．
+
+6.6.8 中断服务例程(interrupt Service Routine)的生成
+
+(6-6-8-1) bool_t VALID_INTNO_CREINT(INTNO intno)
+
+如intno,对于acre_isr为有效的中断号时,返回true,否则返回false.如不使用动
+态创建扩展包时,则无须定义.
+
+6.7 CPU异常处理函数和CPU异常时的系统状态参照
+
+6.7.1 CPU异常处理函数的出入口处理
+
+CPU异常处理函数的出入口处理,不同的处理器有不同的方法,其大致流程如下.
+
+----------------------------------------
+void
+<CPU异常出入口处理>(void)
+{
+	把暂存寄存器保存于堆栈中
+	if (内核管理外的CPU异常) {
+		if (在任务上下文中发生CPU异常) {
+			把堆栈切换至非任务上下文的堆栈并切换至非任务上下文
+		}
+		系统状态(除上下文)设定为CPU异常发生时的状态
+	 	调用CPU异常处理函数,其参数(p_excinf)指向保存有CPU异常信息的内容
+空间
+		if (在任务上下文中发生CPU异常) {
+			把堆栈切回至任务上下文的堆栈并切换回任务上下文
+		}
+		CPU异常处理返回后,准备返回CPU异常发生时的状态
+	}
+	else {
+		if (在任务上下文中发生CPU异常) {
+#ifdef TOPPERS_SUPPORT_OVRHDR
+			(至少)禁止由内核管理的中断
+			ovrtimer_stop();			/* 停止overrun timer */
+			(如有必要)返回原来的状态
+#endif /* TOPPERS_SUPPORT_OVRHDR */
+			把堆栈切换至非任务上下文的堆栈并切换至非任务上下文
+		}
+		系统状态(除上下文)设定为CPU异常发生时的状态
+		(解除CPU锁定,使得CPU可以响应CPU异常发生时具有更高优先级的中断请求)
+
+#ifdef LOG_EXC_ENTER
+		log_exc_enter(CPU异常处理函数号);
+#endif /* LOG_EXC_ENTER */
+		调用CPU异常处理函数,其参数(p_excinf)指向保存有CPU异常信息的内容
+空间
+#ifdef LOG_EXC_LEAVE
+		log_exc_leave(CPU异常处理函数号);
+#endif /* LOG_EXC_LEAVE */
+
+	  ret_exc:
+		if (在任务上下文中发生CPU异常) {
+			(至少)禁止由内核管理的中断 ... (*d)
+			把堆栈切回至任务上下文的堆栈并切换回任务上下文 ... (*g)
+			if (reqflg) {
+				reqflg = false;
+				锁定CPU ... (*e)
+				if (dspflg && p_runtsk != p_schedtsk) {
+					除暂存寄存器外,把其他所有寄存器保存于堆栈中
+					把当前任务(p_runtsk)的堆栈指针保存于TCB中
+					把ret_exc_r作为任务返回地址保存于当前任务的TCB中
+																	... (*a)
+					跳转到任务切换器(dispatcher)
+
+				  ret_exc_r:
+					把除暂存寄存器(scratch register)以外的所有寄存器从堆栈中恢复
+
+				}
+#ifdef TOPPERS_SUPPORT_OVRHDR
+				ovrtimer_start();		/* 起动overrun timer */
+#endif /* TOPPERS_SUPPORT_OVRHDR */
+				calltex(); ... (*b)
+			}
+#ifdef TOPPERS_SUPPORT_OVRHDR
+			else {
+				ovrtimer_start();		/* 起动overrun timer */
+			}
+#endif /* TOPPERS_SUPPORT_OVRHDR */
+		}
+		CPU异常处理返回后,准备返回CPU异常发生时的状态
+	}
+	从堆栈中恢复暂存寄存器
+	CPU异常处理返回
+}
+----------------------------------------
+
+对于CPU异常处理函数,除了切换到非任务上下文,其执行时的系统状态必须与CPU
+异常发生时的系统状态一致.例如,当CPU异常发生时CPU为锁定状态,则调用CPU异
+常处理函数时CPU必须为锁定状态, 当CPU异常发生时CPU为解锁状态,则调用CPU异
+常处理函数时CPU必须为解锁状态.对于CPU锁定时发生的异常属于内核管理外的异
+常,所以对于内核管理内的CPU异常,其异常处理函数是在CPU解锁状态下执行.
+
+对于目标系统而言,可能存在难以判断CPU异常是否属于内核管理.对于这种情况,
+对于在中断优先级屏蔽没有全部解除状态下发生的CPU异常,可以一概当作内核管
+理外的CPU异常处理.这是因为,如果中断优先级屏蔽没有全部解除,则
+xsns_dpn,xns_xpn将返回true,这样应用就无法区分内核管理内的和内核管理外的
+CPU异常.
+
+具体的,全中断锁定(或者CPU锁定)的实现花费(overhead)比较小,在CPU异常处理
+函数中存在无法区分,全中断锁定(或者CPU锁定)和把中断优先级屏蔽设定得很高,
+这两种状态.另外,也存在比较困难地正确判断是处于内核管理外中断处理中还是
+内核内部中(执行内核代码)的情况.
+
+上面的处理中,对于内核管理外的CPU异常,没有做获得追踪日志的处理
+(log_exc_enter和log_exc_leave),但是对于除在全中断锁定状态或者NMI处理中发
+生的内核管理外的CPU异常,做这样的处理也可以.对于在全中断锁定状态或者NMI
+处理中发生的内核管理外的CPU异常,是不能做追踪日志相关的处理.
+
+在进行CPU异常处理时,应尽量减少产生新的CPU异常的可能,同时对于可能产生新
+的CPU异常的场合(如保存暂存寄存器于堆栈中时,可能会产生类似总线错误这样的
+CPU异常),需要在目标依赖部分的使用说明中做相应的记述.
+
+ret_exc以后的处理与中断出入口处理中ret_int以后的处理基本一致,所以对于目
+标系统而言,二者可以共享相关代码.
+
+当CPU异常处理的出入口是通过汇编语言实现的时候,那么其中的获得追踪日志的相关
+处理需要按照<6.2 追踪日志(tracelog)功能对应>中所记述的方法编码.
+
+6.7.2 CPU异常处理函数的出入口的生成
+
+当CPU异常处理向量表是通过硬件实现时,从效率上考虑,CPU异常处理出入口处理应
+为每一个 CPU异常处理函数单独生成.因此,为了生成CPU异常处理出入口处理,需要
+准备相应的功能.
+
+下面的宏定义,只限于使用目标非依赖部分中标准的CPU异常管理功能初始化处理.
+如果在 目标依赖部分中准备了CPU异常管理功能初始化初始化处理,并且不会用到
+这些宏时,可以不用定义.
+
+(6-7-2-1) EXC_ENTRY(excno, exchdr)
+
+为CPU异常处理函数号为excno,CPU异常处理函数名为exchdr的CPU异常处理函数生
+成出入口 标号.当需要通过EXC_ENTRY为每个CPU异常处理函数生成出入口处理时,
+具体定义如下.
+
+#define EXC_ENTRY(excno, exchdr)	_kernel_##exchdr##_##excno
+
+当不需要通过INTHDR_ENTRY为每个CPU异常处理函数生成出入口处理时,具体定义如
+下,直接返回CPU异常处理函数名.
+
+#define EXC_ENTRY(excno, exchdr)	exchdr
+
+(6-7-2-2) EXCHDR_ENTRY(excno, excno_num, exchdr)
+
+为CPU异常处理函数号为excno,CPU异常处理函数名为exchdr的CPU处理函数生成出
+入口.excno_num中为在汇编代码中使用的CPU异常处理函数号.当不需要生成CPU异
+常处理函数出入口处理时,该宏定义为空.
+
+6.7.3 CPU异常处理函数的设定
+
+(6-7-3-1) bool_t VALID_EXCNO_DEFEXC(EXCNO excno)(可选)
+
+当excno作为由DEF_EXC所定义的CPU异常处理函数号,为有效值时返回true,否则返
+回false.
+
+ASP内核的目标非依赖部分中不使用此宏定义,如果目标依赖部分中也不使用此宏
+定义,则不需要准备.
+
+(6-7-3-2) void x_define_exc(EXCNO excno, FP exc_entry)
+
+把由excno所指定的CPU异常处理函数的出入口处理地址定义为exc_entry.
+
+该函数,只限于使用目标非依赖部分中标准的CPU异常管理功能初始化处理.如果
+在目标依赖部分中准备了CPU异常管理功能初始化初始化处理,并且不会用到该函
+数时,可以不用定义.
+
+该函数由于是在目标非依赖部分的内核初始化处理中被调用,在实现时应该考虑能
+在内核初始化的环境下(除NMI外所有的中断都被屏蔽)被调用.
+
+所指定的CPU异常处理函数号对于DEF_EXC不是有效值时,没有必要保证动作的有效
+性(例如通过assert报错).因为这个错误将被在配置器的第二阶段(pass2)的模板
+文件的目标依赖部分中所定义的EXCNO_DEFEXC_VALID检测出来.
+
+6.7.4 CPU异常管理功能的初始化处理变更
+
+(6-7-4-1) OMIT_INITIALIZE_EXCEPTION(可选)
+
+当由目标依赖部分实现CPU异常管理功能的初始化,而不使用目标非依赖部分中的标
+准CPU异常管理功能初始化处理时,定义此宏.
+
+当定义OMIT_INITIALIZE_EXCEPTION后,内核的目标非依赖部分中将不会实现
+EXCINIB和initialize_exception的定义,而起在配置器第二阶段(pass2)的模板文
+件目标非依赖部分中不会在kernel_cfg.c中生成TNUM_EXCNO,tnum_excno和
+excinib_table的定义,和用于生成CPU异常处理函数出入口的相关描述
+(EXCHDR_ENTRY宏列表).
+
+(6-7-4-2) void initialize_exception(void)(可选)
+
+当定义OMIT_INITIALIZE_EXCEPTION后,该函数由目标依赖部分准备,包括相关数据
+类型,变量和宏定义.
+
+6.7.5 默认的CPU异常处理函数
+
+(6-7-5-1) default_exc_handler(void)(可选)
+
+当由配置器生成CPU异常处理函数表时,对于没有注册CPU异常处理函数的CPU异常,
+将注册 default_exc_handler作为默认CPU异常处理函数.
+
+default_exc_handler,默认由目标依赖部分准备,但使用者也可以自定义默认CPU
+异常处理函数.当定义宏OMIT_DEFAULT_EXC_HANDLER时,将不使用目标依赖部分中的
+默认CPU异常处理函数,使用者需需准备自定义的默认CPU异常处理函数,函数名为
+_kernel_default_exc_handler.
+
+6.7.6 CPU异常发生时的系统状态参照
+
+(6-7-6-1) bool_t exc_sense_intmask(void *p_excinf)
+
+该函数用于参照CPU例外发时的系统状态,如果没有在执行内核的代码,位于任务上
+下文中,不是全中断锁定状态,CPU解锁和中断优先级屏蔽全部解除的状态下,返回
+true,否则返回false.
+
+p_excinf指向保存有CPU异常发生时信息的内存空间.
+
+注意在内核管理外的CPU异常处理调用该函数时,必须返回false.
+
+6.8	内核的起动.结束与堆栈
+
+(6-8-1) 起动模块
+
+内核的启动模块在系统复位中最先执行.起动模块默认是由处理依赖部分或者芯片
+依赖部分准备,做如下处理.当然也可以不限于此,使用开发环境所准备的起动模块
+(此时,在目标依赖部分中需要准备main函数),或者使用由应用准备的起动模块.
+
+(a) 处理器初始化
+
+初始化处理器的模式,堆栈指针和帧指针等等,并且屏蔽除NMI以外的所有中断(等
+同于全中断锁定状态),还要做诸如初始化时钟,初始化内存控制器之类的工作(这
+些工作也可以放在下面的hardware_init_hook中执行).
+
+(b) 调用hardware_init_hook
+
+在处理器初始化之后,所有对于目标系统所必要的硬件初始化处理在
+hardware_init_hook中进行.当没有准备hardware_init_hook时,什么也不做.在
+GNU开发环境中,通过链接脚本中的符号弱定义(weak definition),没有准备
+hardware_init_hook时,其hardware_init_hook的值为0.对于不支持符号弱定义功
+能的开发环境,那么会存在对hardware_init_hook的调用.
+
+hardware_init_hook默认是由目标依赖部分准备,但为了方便追加系统复位后所必
+须的硬件初始化处理,也可由具体应用具体准备.
+
+如果针对内存访问(例如内存控制器)的初始化是在hardware_init_hook中进行,由
+于在内存可以访问之前是不能使用堆栈的,那么对于通过堆栈进行函数(子例程)调
+用的处理器而言, 就必须把返回地址保存与通用寄存器中,通过寄存器返回.对于
+这种情况,hardware_init_hook可能无法用C语言实现,而必须通过汇编语言实现. 
+
+(c) bss段和data段初始化
+
+bss段清零,并初始化data段.
+
+ASP内核本身只有kerflg需要初始化为false(=0),因此对于起动模块是由具体应用
+准备时,如果应用和系统服务不依赖与bss段和data段的初始化,那么为缩短系统的
+起动时间,在此只需把kerflg初始化为false.
+
+(d) 调用software_init_hook
+
+对于开发环境所要求一些初始化(特别是库)在software_init_hook中进行.当没有
+准备software_init_hook时,什么也不做.在GNU开发环境中,通过链接脚本中的 符
+号弱定义(weak definition),没有准备software_init_hook时,
+software_init_hook的值为0.对于不支持符号弱定义功能的开发环境,那么会存
+在对software_init_hook的调用.
+
+(e) 跳转到sta_ker
+
+sta_ker必须在除NMI外所有中断被屏蔽的状态(等同于全中断锁定状态)被调用.
+sta_ker中没有返回,在起动模块中需要考虑到这点.
+
+(6-8-2) void target_initialize(void)
+
+目标依赖部分初始化函数.该函数在sta_ker中最先调用.目标依赖部分中的处理器
+依赖部分,芯片依赖部分和开发环境依赖部分的初始化处理可能分开实现.
+
+该函数只做对内核和目标依赖部分所必须的初始化处理,应用的初始化处理通过初
+始化例程进行.系统复位后的必要硬件初始化处理在hardware_init_hook中进行.
+
+(6-8-3) void call_exit_kernel(void)
+
+该函数在ext_ker中被调用,将切换到非任务上下文中,并跳转到exit_kerenl.由于
+exit_kernel不会返回,所以该函数也无须考虑返回.
+
+切换到非任务上下文是因为结束处理例程(terminate routine)需要在非任务上下文
+中执行.如果把结束处理例程放在任务上下文中执行,那么在为各任务确定任务堆
+栈大小时必须考虑结束处理例程所需占用的堆栈.如果结束处理例程需要占用较大
+的堆栈,那么各任务堆栈也必须相应的扩大,这种扩大是无谓的,而且即使如此,也
+存在任务堆栈溢出的可能性.
+
+该函数是在中断全中断锁定的状态下被调用的,在实现时,必须考虑其中不能调用
+无法在全中断锁定状态下运行的函数.
+
+(6-8-4) void target_exit(void)
+
+目标依赖部分的结束处理函数.该函数在内核结束处理的最后被调用,该函数没有
+返回.目标依赖部分中的处理器依赖部分,芯片依赖部分和开发环境依赖部分的结
+束处理可能分开实现.
+
+该函数最初是将调用经atexit所注册的函数和析构函数,现在取而代之的是调用
+software_term_hook.当没有准备software_term_hook时,什么也不做.在 GNU开发
+环境中,通过链接脚本中的 符号弱定义(weak definition),没有准备
+software_term_hook时,software_term_hook的值为0.对于不支持符号弱定义功能
+的开发环境,那么会存 在对software_term_hook的调用.
+
+该函数是在中断全中断锁定的状态下被调用的,在实现时,必须考虑其中不能调用
+无法在全中断锁定状态下运行的函数.
+
+6.9 内核内部的调整 
+
+6.9.1 位图搜索(bitmap search)
+
+(6-9-1-1) OMIT_BITMAP_SEARCH(可选)
+(6-9-1-2) uint_t bitmap_search(uint16_t bitmap)(可选)
+
+在目标非依赖部分中,bitmap_serach用于从最低位开始(从右往左)开始搜索一个
+uint16_t型的整数值bitmap中为1的位,并返回所在位数,最低位为0位.bitmap不能
+为0.
+
+对于支持位搜索指令的处理器而言,使用位搜索指令代理默认的实现会获得更高的
+效率.对于这种情况,需要在目标依赖部分中定义使用位搜索指令的
+bitmap_search,并定义宏OMIT_BITMAP_SEARCH.
+
+如果标准库中有位搜索指令ffs,那么可以定义bitmap_search为(ffs(bitmap)-1).
+
+(6-9-1-3) uint16_t PRIMAP_BIT(PRI pri)(可选)
+
+如果位搜索指定的方向是从最高位开始的,需要更改优先级和位的对应关系时,定
+义宏PRIMAP_BIT.
+
+6.9.2 位域(bit field)
+
+(6-9-2-1) BIT_FIELD_UINT(可选)
+
+8位以下宽度的位域所对应的无符号整数值的数据类型,默认定义为unsigned int ,
+但根据目标系统和开发工具,也可定义为unsigned char或者unsigned short以获
+得更高的效率.
+
+(6-9-2-2) BIT_FIELD_BOOL(可选)
+
+1位宽度的位域所对应的布尔值的数据类型,默认定义与BIT_FIELD_UINT一致,为了
+表示是布尔值,所以用BIT_FIELD_BOOL.
+
+(6-9-2-3) TBIT_TCB_PRIORITY(可选)
+
+TCB中保存有任务当前优先级(以及互斥量扩展包中的初始优先级)的数据域所占
+的位数.默认定义为8位,如需更改,定义此宏.	
+		
+6.10 与内核实现相关的其他定义
+
+6.10.1 目标依赖的对象属性
+
+(6-10-1) TARGET_TSKATR(可选)	目标定义任务属性
+(6-10-2) TARGET_ISRATR(可选)	目标定义ISR属性
+(6-10-3) TARGET_INHATR(可选)	目标定义中断处理函数属性
+(6-10-4) TARGET_INTATR(可选)	目标定义中断属性
+(6-10-5) TARGET_EXCATR(可选)	目标定义CPU异常处理函数属性
+
+当需要为各对象属性扩展目标定义属性时,对于保存有相应对象属性的变量,定义
+相应的对象属性扩展位的位或,以避免设定了对象属性扩展位时,出错.
+
+在TOPPERS新一代内核综合规范中,没有目标定义扩展中断服务例程(ISR)属性的相
+应规范.
+
+6.10.2 错误检测方法的指定
+
+(6-10-1) TARGET_MIN_STKSZ(可选)
+
+当需要设定任务堆栈大小最小值时,把该宏定义为相应的最小值.
+
+(6-10-2) CHECK_STKSZ_ALIGN(可选)
+
+当需要确保任务堆栈大小必须为某个值(对齐单位)的整数倍时,把该值定义为任 务
+堆栈大小的对齐单位.如果定义了任务堆栈大小的对齐单位,在kernel.tf和
+acre_tsk(位于动态创建扩展包)中,将检查任务堆栈大小不对齐(即不为对齐单位
+的整数倍)的错误.如果不需要做这样的检查,则不要定义该宏.
+
+(6-10-3) CHECK_FUNC_ALIGN(可选)		处理单位(函数)的地址对齐
+(6-10-4) CHECK_FUNC_NONNULL(可选) 	检查处理单位(函数)地址是否为NULL
+(6-10-5) CHECK_STACK_ALIGN(可选)  	堆栈地址对齐
+(6-10-6) CHECK_STACK_NONNULL(可选)	检查堆栈地址是否为NULL
+(6-10-7) CHECK_MPF_ALIGN(可选)		固定长内存池地址对齐
+(6-10-8) CHECK_MPF_NONNULL(可选)  	检查固定长内存池地址是否为NULL
+
+当需要确保处理单位/堆栈/固定长内存池的地址为某个值(对齐单位)的整数倍时,
+为CHECK_FUNC_ALIGN/ CHECK_STACK_ALIGN/CHECK_MPF_ALIGN定义对齐单位.当需
+要检查处理单位/堆栈/固定长内存池的地址不为NULL时,定义
+CHECK_FUNC_NONNULL/CHECK_STACK_NONNULL/CHECK_MPF_NONNULL.
+
+(6-10-9) CHECK_MB_ALIGN(可选) 管理块的地址对齐
+
+当需要确保内核的管理块(具体指,数据队列的管理块,优先级数据队列的管理块和
+固定长内存池的管理块)的地址为某个值(对齐单位)的整数倍时,定义该宏为相应
+的对齐单位.如果不使用动态创建扩展包,则不需定义该宏.
+
+6.10.3 非任务上下文所使用的堆栈
+
+(6-10-3-1) DEFAULT_ISTKSZ
+
+当没有通过DEF_ICS确定非任务上下文的堆栈大小时,非任务上下文堆栈的默认大小
+.
+
+(6-10-3-2) DEFAULT_ISTK(可选)
+
+当没有通过DEF_ICS确定非任务上下文的堆栈地址时,非任务上下文堆栈的默认地
+址.如果没有定义该宏,则非任务上下文堆栈定义为大小为DEFAULT_ISTKSZ的数组.
+
+(6-10-3-3) STK_T *TOPPERS_ISTKPT(STK_T *istk, SIZE istksz)(可选)
+
+如果使用变量istkpt保存非任务上下文堆栈指针的初始值,那么通过该宏从非任务
+上下文堆栈地址(istk)和大小(istksz)获得相应的堆栈指针初始值.
+
+6.10.5 空符号定义
+
+(6-10-4-1) TOPPERS_EMPTY_LABEL(type, symbol)(可选)
+
+该宏定义生成一个type型数组的空符号symbol,以防止链接错误.因为不会访问
+symbol的内容,怎样定义都可以.
+
+默认,该宏定义把symbol定义为大小为0的type型数组.如果所使用的编译器不会为
+大小为0的数组生成错误(例如GCC),则无需在目标依赖部分中重新定义该宏.
+
+6.11 与追踪日志(tracelog)功能相关的定义
+
+在ASP内核的代码中,为了获得内核运行中的信息(追踪日志)嵌入了相应的宏定义.
+默认情况下,这些宏定义为空,,如把这些宏做合适的定义则可以或得相应的最终日
+志.
+
+6.11.1 可以获得的tracelog种类和宏
+
+可以获得的追踪日志种类和相应的宏定义如下.
+
+(a) 内核的开始和结束
+
+如定义下述宏,则可以获得内核的开始和结束时的追踪日志.
+
+	LOG_KER_ENTER		内核开始运行前(初始化结束后)
+	LOG_KER_LEAVE		内核结束(ext_ker)调用后(内核结束处理之前)
+
+(b) 处理单位的开始和结束
+
+如定义下述宏,则可以获得中断处理函数(INH),中断服务例程(ISR),周期定时器处
+理函数(CYC),单次定时器处理函数(ALM),CPU异常处理函数(EXC)和任务异常处理
+例程(TEX)的开始和结束时的追踪日志.
+
+	LOG_<处理单位缩写>_ENTER	处理单位开始执行之前
+	LOG_<处理单位缩写>_LEAVE	处理单位结束返回之后
+
+此处的中断处理函数是由应用所注册的,而非为了调用中断服务例程(ISR)由内核自
+动生成的中断处理函数.任务的开始和结束时的追踪日志可以通过其他方法获得,
+所以不使用这里的方法.
+
+另外对于中断处理函数和CPU异常处理函数的开始和结束,如果获得相应的追踪日
+志由目标依赖部分实现,具体参照<6.2 追踪日志(tracelog)功能对应>, <6.6.1 中
+断处理函数的出入口处理>和<6.6.2 CPU异常处理函数的出入口处理>
+
+(c) 任务状态的变化
+
+如定义下述宏时,当任务状态发生变化时可以获得相应的追踪日志.对于当任务在
+运行态(running)和准备运行态(ready)之间迁移时,追踪日志可以通过其他方法获
+得,所以不使用这里的方法.
+
+	LOG_TSKSTAT		任务状态变化
+
+(d) 切换器的开始和结束
+
+如定义下述宏,当任务切换器开始和结束时可以获得相应的追踪日志.
+
+	LOG_DSP_ENTER	切换器开始
+	LOG_DSP_LEAVE	切换器结束
+
+当切换器开始执行时,正是任务从运行态(running)迁移到准备运行态(ready)的时
+刻,此时把指向将迁移到准备运行态任务TCB的指针作为参数传递给
+LOG_DSP_ENTER.对应当切换结束时,正是任务从准备运行态(ready)迁移到运行态
+(running)的时刻,此时把指向将迁移到运行态任务的TCB的指针作为参数传递给
+LOG_DSP_LEAVE.
+
+ASP内核中,如果没有可以运行的任务,内核将进入空闲(idle)状态,此时内核将一
+直停留在切换器中.所以对于迁移到空闲状态和从空闲状态迁移到其他状态的情况
+,无法通过这些宏获得追踪日志.
+
+(e) 系统服务调用的入口和出口
+
+如定义下述,在各系统服务调用的入口和出口处可以获得相应的追踪日志.
+
+	LOG_<系统服务调用名大写>_ENTER		系统服务调用入口
+	LOG_<系统服务调用名大写>_LEAVE		系统服务调用出口
+
+具体的宏名称和参数,参照ASP内核代码.
+
+6.11.2 使用tracelog的样例代码
+
+作为记录追踪日志的一个样例,arch/logtrace目录下的代码展示了如何把追踪日
+志记录于内存中.这段代码实现了和系统日志功能一样的追踪日志功能,和把追踪
+日志信息记录于内存中以及从内存中读取追踪日志的功能.
+
+把这段代码嵌入到应用中的方法如下
+
+(1) 在target_config.h和target_syssvc.h中,增加下面的记述．
+
+	#ifdef TOPPERS_ENABLE_TRACE
+	#include "logtrace/trace_config.h"
+	#endif /* TOPPERS_ENABLE_TRACE */
+
+(2) 在Makefile.target中,增加下面的记述．
+
+	ifeq ($(ENABLE_TRACE),true)
+		COPTS := $(COPTS) -DTOPPERS_ENABLE_TRACE
+		KERNEL_DIR := $(KERNEL_DIR) $(SRCDIR)/arch/logtrace
+		KERNEL_COBJS := $(KERNEL_COBJS) trace_config.o trace_dump.o
+	endif
+
+(3) 在起动模块中,如果省略了BSS段清零处理,那么需要增加把trae_mode初始化
+    为TRACE_STOP(=0)的处理,即无视追踪日志功能初始化之前所写入的追踪日志
+    信息.
+  
+通过这段代码,记录/导出追踪日志的方法具体参照<TOPPERS/ASP内核用户手册>中
+<11.6 追踪日志记录的样例代码>的内容
+
+另外,这段代码只记录了切换器出口,任务状态迁移和系统日志输出三种情况下的
+追踪日志.如需记录其他追踪日志,需修正trace_config.h和trace_dump.c.详细记
+录整个内核追踪日志的代码包含于TLV(TraceLogVisualizer)的发布包中.
+
+6.12 内核实现的目标依赖部分的重命名
+
+在内核内部使用的函数名和变量名等等符号中,对于那些可以通过目标文件符号表
+可以从外部访问的符号,必须加上名为"_kernel_"或者"_KERNEL_"的前缀,以避免
+符号名冲突.为了保证代码精简并有良好的可读性,ASP内核通过导入重命名
+记述文件实现符号重命名.
+
+具体而言,把需要进行重命名的符号名列于xxx_rename.def中,然后通过工具
+(utils/genrename)处理该文件,将生成包含重命名宏定义的xxx_reanme.h和包含解
+除重命名的宏定义的xxx_rename.h.工具的使用方法如下
+	
+	% genrename xxx
+
+在xxx_rename.def中,每个需要重命名的符号独占1行.例如,对于其中名为xxx的符
+号,在xxx_rename.h中将生成以下内容
+
+#define xxxx				_kernel_xxxx
+#ifdef TOPPERS_LABEL_ASM
+#define _xxxx				__kernel_xxxx
+#endif /* TOPPERS_LABEL_ASM */
+
+在xxx_unrename.h中将生成以下内容
+
+#undef xxxx
+#ifdef TOPPERS_LABEL_ASM
+#undef _xxxx
+#endif /* TOPPERS_LABEL_ASM */
+
+在xxx_rename.def中,为了包含其他重命名记述文件,可以通过使用<INCLUDE
+"yyy"> 或者<INCLUDE <yyy>>来实现.如使用这种方法,那么将在xxx_rename.h中生
+成 <#include "yyy_rename.h">或者<#include <yyy_rename.h>>,将在
+xxx_unrename.h中生成<#include "yyy_unrename.h">或者<#include
+<yyy_unrename.h>>.
+
+在xxx_rename.def中以#开头的行为注释,空白行会被忽略.
+
+对于内核目标非依赖部分中的符号重命名,由kernel_rename.def和根据它生成的
+kernel_rename.h和kernel_unrename.h实现.在kernel_rename.def中有<INCLUDE
+"target">这样的记述,所以将包含目标依赖部分的重命名记述.对于在目标非依赖
+部分中参照的目标依赖部分定义的符号,其重命名包含于目标依赖部分中.
+
+对于内核目标依赖部分中的符号重命名,由target_rename.def和根据它生成的
+target_rename.h和target_unrename.h实现.对于目标依赖部分又可分为的处理器
+依赖部分,芯片依赖部分和开发环境依赖部分的情况,需要在target_rename.def中
+通过INCLUDE包含这些子依赖部分中的重命名记述.
+
+6.13 系统时钟驱动
+
+系统时钟驱动每隔一段时间通知内核一个系统时钟(timer tick)到来.
+
+6.13.1 系统时钟驱动的构成
+
+target_timer.cfg为系统时钟驱动的配置文件,其中的静态API所描述的内容主要
+为把系统时钟的初始化追加到初始化处理例程中,把系统时钟的结束处理追加到结
+束处理例程中,定义系统时钟中断处理函数(或者是追加系统时钟中断服务例程),
+定义系统时钟中断请求线属性.
+
+target_timer.h为系统时钟驱动相关的宏定义,数据结构和函数声明等等.
+target_timer.c为系统时钟驱动的具体实现.
+
+内核通过获得来自系统时钟驱动的通知所做的处理多数是任务的启动和解除任务的
+等待状态,所以系统时钟的中断优先级可以设定为最低的中断优先级.但是,对于周
+期定时器(cyclic handler)和单次定时器(alarm handler)而言,过低的中断优先
+级可能会推迟它们的执行,所以希望系统时钟中断具有较高的中断优先级.具体如
+何设定系统时钟中断优先级和相应的变更方法,应在目标依赖部分的说明文档中做
+相应的记述.
+
+6.13.2 系统时钟的初始化,结束和中断处理
+
+(6-13-2-1) void target_timer_initialize(intptr_t exinf)
+
+该函数用于初始化系统时钟.系统时钟的中断周期与由TIC_NUME和TIC_DENO所确定
+的时间一致(具体参照<5.2 系统时钟的定义>).
+
+该函数通过target_timer.cfg中的静态API被追加到内核初始化处理例程中.
+
+(6-13-2-2) void target_timer_terminate(intptr_t exinf)
+
+该函数用于停止系统时钟,使得系统时钟中断不在发生.
+
+该函数通过target_timer.cfg中的静态API被追加到内核结束处理例程中.
+
+(6-13-2-3) void target_timer_handler(void)
+   		 或者 void target_timer_isr(intptr_t exinf)
+
+该函数用于处理系统时钟中断.如果是中断处理函数,则为target_timer_handler ,
+如果是中断处理例程,则为target_timer_isr.在该函数中,将调用目标非依赖部中
+的signal_time
+
+对于target_timer_handler,标准的实现如下
+----------------------------------------
+void
+target_timer_handler(void)
+{
+	i_begin_int(系统时钟中断号);
+	signal_time();
+	i_end_int(系统时钟中断号);
+}
+----------------------------------------
+
+该函数通过target_timer.cfg中的静态API被定义为系统时钟中断处理函数或者系
+统时钟中断服务例程.
+
+6.13.3 针对性能评价用系统时刻参照的功能
+
+如果目标支持性能评价用系统时刻参照功能(get_utm),则在系统时钟驱动中应定
+义如下数据类型和函数.
+
+(6-13-3-1) OMIT_GET_UTM(可选)
+
+如果不使用目标非依赖部分中的get_utm实现,而是由目标依赖部分准备get_utm,
+那么定义该宏,并且需要定义下面的数据类型和函数.
+
+(6-13-3-2) CLOCK
+
+定时器值内部表现数据类型.
+
+(6-13-3-3) CLOCK target_timer_get_current(void)
+
+该函数用于获得当前定时器的值,并以定时器值内部表现数据类型返回.假定定时
+器递增计数,但如果定时器为递减计数,则在该函数中需做相应的变换处理.
+
+(6-13-3-4) bool_t target_timer_probe_int(void)
+
+该函数用于查询是否存在系统时钟中断请求,如果有返回true,如果无则返回false.
+
+(6-13-3-5) TO_USEC(clock)
+
+该宏或者函数实现定时器值内部表现数据类型到微秒的转换.把由
+targettimer_get_current所获的值转换为从上次系统时钟中断开始所经过的时间
+(单位:1微秒).
+
+6.14 任务运行超时定时器驱动(overrun timer)(可选)
+
+任务运行超时定时器驱动主要用于启动任务超时处理函数.如果不使用任务超时处理函数扩
+展包,则不要准备任务运行超时定时器.
+
+6.14.1 任务运行超时定时器驱动的构成
+
+任务运行超时定时器驱动与系统时钟定时器驱动在相同的文件中实现,且在只有定义了宏
+TOPPERS_SUPPORT_OVRHDR之后,才会被编译.
+
+target_timer.cfg中除关于系统时钟驱动的静态API,还包括关于任务运行超时定时器驱动的
+静态API,其所描述的内容主要 为把任务运行超时定时器的初始化追加到初始化处理例程中,
+把任务运行超时定时器的结束处理追加到结 束处理例程中,定义任务运行超时定时器中断处理函数(
+或者是追任务运行超时定时器中断服务例程),定义任务运行超时定时器中断请求线属性.
+
+target_timer.h中包含任务运行超时定时器驱动相关的宏定义,数据结构和函数声明等等.
+target_timer.c为任务运行超时定时器驱动的具体实现.
+
+任务运行超时定时器处理函数主要做任务运行超时时的相关处理.任务运行超时定时器的中断优先级
+可以设定为最低的中断优先级,但也可以根据情况设定为更高的中断优先级.具体
+如何设定任务运行超时定时器中断优先级和相应的变更方法,应在目标依赖部分的说明文档
+中做相应的记述.
+
+6.14.2 任务运行超时定时器的操作和中断处理
+
+(6-14-2-1) void target_ovrtimer_initialize(intptr_t exinf)
+
+该函数初始化任务运行超时定时器,但不起动定时器.
+
+该函数通过target_timer.cfg中的静态API被追加到内核初始化处理例程中.
+
+(6-14-2-2) void target_ovrtimer_terminate(intptr_t exinf)
+
+该函数用于停止任务运行超时定时器,使得任务运行超时定时器中断不在发生.
+
+该函数通过target_timer.cfg中的静态API被追加到内核结束处理例程中.
+
+(6-14-2-3) void target_ovrtimer_start(OVRTIM ovrtim)
+
+设定任务运行超时定时器的超时时间为ovrtim,并起动定时器.ovrtim的单位为微秒.
+
+(6-14-2-4) OVRTIM target_ovrtimer_stop(void)
+
+停止任务运行超时定时器,并返回剩余时间.如果剩余时间为0(或者不足),返回1,并清除超
+时定时器中断请求.
+
+(6-14-2-5) OVRTIM target_ovrtimer_get_current(void)
+
+获得任务运行超时定时器剩余时间,并返回.如果剩余时间为0(或者不足),返回0,但不清除
+任务运行超时定时器中断请求.
+
+(6-14-2-6) void target_ovrtimer_handler(void)
+    或者 void target_ovrtimer_isr(intptr_t exinf)
+
+该函数用于任务运行超时定时器中断.如果是中断处理函数,则为target_ovrtimer_handler,
+如果是中断处理例程,则为target_ovrtimer_isr.在该函数中,将调用目标非依赖
+部中的call_ovrhdr.
+
+对于target_ovrtimer_handler,标准的实现如下.
+
+----------------------------------------
+void
+target_ovrtimer_handler(void)
+{
+	i_begin_int(任务运行超时定时器中断号);
+	signal_time();
+	i_end_int(任务运行超时定时器中断号);
+}
+----------------------------------------
+
+该函数通过target_timer.cfg中的静态API被定义为系统时钟中断处理函数或者系
+统时钟中断服务例程.
+
+6.15 动态内存管理
+
+如果使用动态创建扩展包,那么必须决定内核的内存动态管理方法.
+
+动态创建扩展包中,只实现了一个简单的动态内存管理模块,并默认使用该模块.
+在该模块中,内存从头开始顺序分配,而释放的内存则不再利用.
+
+如果想进行真正的动态内存管理,需要目标依赖部分或者应用中,准备定义了如下
+函数的内存模块.
+
+(6-15-1) OMIT_KMM_ALLOCONLY(可选)
+
+如不使用目标非依赖部分的默认内存管理单元,而使用目标依赖部分或者应用中的
+内存管理模块,定义该宏.
+
+(6-15-2) void initialize_kmm(void)(可选)
+
+内存管理模块初始化函数.分配给内核的内存空间的大小和地址,通过kmmsz和kmm
+参照.
+
+(6-15-3) void *kernel_malloc(SIZE size)(可选)
+
+分配大小为size的一块内存空间,并返回其地址.如果分配不成功,则返回NULL.
+
+(6-15-4) void kernel_free(void *ptr)(可选)
+
+释放ptr所指向的内存空间.
+
+6.15.1 使用TLSF进行内存管理的例子
+
+如果使用开源内存管理库TLSF进行动态内存管理,则定义宏OMIT_KMM_ALLOCONLY,
+并在C语言源文件中包含如下代码.
+
+----------------------------------------
+#include "tlsf.h"
+
+static bool_t	tlsf_initialized = false;
+
+void
+initialize_kmm(void)
+{
+	if (init_memory_pool(kmmsz, kmm) >= 0) {
+		tlsf_initialized = true;
+	}
+}
+
+void *
+kernel_malloc(SIZE size)
+{
+	if (tlsf_initialized) {
+		return(malloc_ex(size, kmm));
+	}
+	else {
+		return(NULL);
+	}
+}
+
+void
+kernel_free(void *ptr)
+{
+	if (tlsf_initialized) {
+		free_ex(ptr, kmm);
+	}
+}
+----------------------------------------
+
+
+7 配置器设定文件的目标依赖部分
+
+ASP内核的配置器依据相应设定文件中的记述生成文件并进行错误检测.配置器的
+设定文件有以下4种.
+
+7.1 设定文件和目标依赖部分的位置
+
+(a) 静态API表
+
+静态API表中记录了静态API的名称和参数等信息.如果不需要对静态API进行扩展,
+那么由目标非依赖部分准备该表(kernel/kernel_asp.csv).
+
+(b) 取值符号表
+
+在配置器的第一阶段(pass1)将输出用以计算参数的C语言文件,取值符号表中包含
+了需求值的符号(一般为表达式).目标非依赖部分准备了不依赖具体目标的取值符
+号表(kerenl/kernel_def.csv).
+
+目标依赖目录下的target_def.csv记述了依赖于具体目标的需求值的符号,并且这
+些符号必须在kernel/kernel_int.h以及包含于其中的文件中定义.由于
+kernel_int.h中间接包含了target_stddded.h,target_kernel.h和
+target_config.h,所以在这几个文件以及办好于其中的文件中所定义的符号,如有
+需要可以在target_def.csv中记述.
+
+记述中取值符号表中的符号和所求的值可以在配置器第二阶段(pass2)和第三阶段
+(pass3)中的模板文件中被参照.
+
+(c) 第二阶段(pass2)的模板文件
+
+配置器的第二阶段(pass2)将依据模板文件的记述生成内核构成和初始化源文件
+(kernel_cfg.c)和相应的头文件(kernel_cfg.h).相应的模板文件可以分为非依赖
+部分和目标依赖部分.与其他一般文件的目标非依赖部分和目标依赖部分的包含关
+系不同的是,对于第二阶段(pass2)的模板文件,是由目标依赖部分包含目标非依
+赖部分.
+
+具体而言,在目标依赖目录下的target.tf中,做了必要的变量定义后,应包含目标
+非依赖部分的模板文件(kernel/kernel.tf).kernel.tf中将生成内核目标非依赖
+部分所使用的变量的定义.之后,target.tf将生成目标依赖部分所使用的变量的定
+义.target.tf又可根据情况分为处理器依赖部分,芯片依赖部分和开发环境依赖部
+分.
+
+(d) 第三阶段(pass3)的模板文件
+
+配置器的第三阶段(pass3)将依据模板文件的记述对静态API中的常量参数进行检查
+. 相应的模板文件可以分为非依赖部分和目标依赖部分.与第二阶段(pass2)的模
+板文件一样,对于第三阶段(pass3)的模板文件,是由目标依赖部分包含目标非依赖
+部分.
+
+具体而言,在目标依赖目录下的target_check.tf中,做了必要的变量定义后,应包
+含目标非依赖部分的模板文件(kernel/kernel_check.tf).kernel_check.tf将对
+目标非依赖部分中的初始化模块中的常量参数进行检查.之后,target_check.tf将
+对目标依赖部分进行检查.target_check.tf又可根据情况分为处理器依赖部分,芯
+片依赖部分和开发环境依赖部分.
+
+关于配置器的详细规范和相应设定文件的记述方法,可以参照以pdf文件形式单独
+发布的<TOPPERS新一代内核配置器规范>和<TOPPERS新一代内核配置器内建宏处理
+器规范>.
+
+7.2	第二阶段用模板文件的目标依赖部分
+
+以下为,配置器的第二阶段(pass2)的模板文件目标依赖部分中所必须记述的内容.
+
+7.2.1 包含目标非依赖部分模板之前所需定义的变量
+
+target.tf在包含kernel.tf之前,必须做如下变量的定义.
+
+(7-2-1) INTNO_ATTISR_VALID		ATT_ISR可以使用的中断号
+(7-2-2) INHNO_ATTISR_VALID		对应于INTNO_ATTISR_VALID的中断处理函数号
+(7-2-3) INHNO_DEFINH_VALID		DEF_INT可以使用的中断处理函数号
+(7-2-4) EXCNO_DEFEXC_VALID		DEF_EXC可以使用的CPU异常处理函数号
+(7-2-5) INTNO_CFGINT_VALID		CFG_INT可以使用的中断号
+(7-2-6) INTPRI_CFGINT_VALID		CFG_INT可以使用的中断优先级
+
+以列表(list)的形式定义静态API中可以使用的中断号/中断处理函数号/CPU异常处
+理函数号/中断优先级.INHNO_ATTISR_VALID为对应于INTNO_ATTISR_VALID中所列
+出的中断号的中断处理函数号列表.CFG_INT为所有可以指定的中断号列表
+.INTNO_CFGINT_VALID为有效中断号列表.
+
+(7-2-7) INTNO_FIX_KERNEL(可选)		内核管理内的固定中断号
+(7-2-8) INHNO_FIX_KERNEL(可选)		内核管理内的固定中断处理函数号
+(7-2-9) INHNO_FIX_NONKERNEL(可选)	内核管理外的固定中断号
+(7-2-10) INHNO_FIX_NONKERNEL(可选)	内核管理外的固定中断处理函数号
+
+无论是对于内核管理内的还是内核管理外的,如果存在固定的中断,则定义相应的
+中断号列表和中断处理函数号列表.
+
+(7-2-11) USE_INHINIB_TABLE(可选)
+
+即使定义了OMIT_INITIALIZE_INTERRUPT,但仍需要在kernel_cfg.c中生成中断处理
+函数的必要初始化信息,则定义USE_INHINIB_TABLE为1.具体而言,由目标非依赖部
+分生成TNUM_INHNO,tnum_inhno和inhinib_table的定义,以及为每个中断处理函数
+生成出入口处理(INTHDR_ENTRY宏列表).
+
+(7-2-12) USE_INTINIB_TABLE(可选)
+
+即使定义了OMIT_INITIALIZE_INTERRUPT,但仍需要在kernel_cfg.c中生成中断请求
+线的必要初始化信息,则定义USE_INTINIB_TABLE为1.具体而言,由目标非依赖部分
+生成TNUM_INTNO,tnum_intno和intinib_table的定义.
+
+(7-2-13) GENERATE_TSKINICTXB(可选)
+
+如定义了宏USE_TSKINICTXB,则在模板文件中需定义函数GENERATE_TSKINICTXB用以
+生成TSKINICTXB的初始化信息,其参数为任务ID.
+
+7.2.2 目标非依赖部分定义的变量
+
+kernel.tf中需定义如下变量.target.tf在包含kernel.tf后可以参照这些变量.
+
+(7-3-1) INTNO[inhno]		用以把inhno转换为intno的数组
+(7-3-2) INHNO[intno]		用以把intno转换为inhno的数组
+
+7.3	第三阶段用模板文件的目标依赖部分
+
+以下为,配置器的第三阶段(pass3)的模板文件目标依赖部分中所必须记述的内容.
+
+7.3.1 包含目标非依赖部分模板之前所需定义的变量
+
+target_check.tf在包含kernel_check.tf之前,必须做如下变量的定义.
+
+(7-3-1) GET_STK_TSKINICTXB(可选)
+
+如定义了宏USE_TSKINICTXB,则在模板文件中需定义函数GET_STK_TSKINICTXB用以
+从TINIB中获得任务堆栈地址,其参数为任务初始化块(TINIB)的地址.如果没有定义
+CHECK_STACK_ALIGN和CHECK_STACK_NONNULL,则无需定义GET_STK_TSKINICTXB.
+
+7.3.2 目标依赖部分中所需做的错误检查
+
+以下地址,由于不会在目标非依赖部分中生成,所以配置器第三阶段(pass3)不会检
+查地址是否正确.这些地址需要在目标依赖部分中做错误检查.
+
+* 中断服务例程地址(ATT_ISR中的isr) 
+* 中断处理函数地址(DEF_INH中的inthdr)
+* CPU异常处理函数地址(DEF_EXC中的exchdr)
+* 初始化处理例程地址(ATT_INI中的inirtn)
+* 结束处理例程地址(ATT_TER中的terrtn)
+
+在目标非依赖部分中,并不是一定要做这些错误检查.在用户手册的<1.5 已知问题>
+中记述了在目标依赖部分中不做错误检测的一些说明.
+
+7.4	cfg1_out.c链接用stab定义文件
+
+在目标依赖部分中,除需准备相关的配置器设定文件外,还需准备cfg1_out.c链接用
+stab定义文件.
+
+在配置器第一阶段(pass1),为了通过C编译器用以获得静态API中的整形常量参数 ,
+将生成cfg1_out.c.由于将同起动模块一起编译,链接生成目标文件,所以必须增加
+一些在起动模块中所访问的符号的定义,以防止出现未定义的错误.
+
+这些符号的定义在cfg1_out.c所包含的target_cfg1_out.h中,一般需要包含如下
+定义.
+
+----------------------------------------
+void sta_ker(void)
+{
+}
+
+void hardware_init_hook(void)
+{
+}
+
+void software_init_hook(void)
+{
+}
+
+const SIZE		_kernel_istksz = 0;
+
+STK_T *const	_kernel_istk = NULL;
+----------------------------------------
+
+另外,当使用配置器生成偏移文件(offset.h)时,相关记述也必须追加到
+target_cfg1_out.h(或者包含于其中的文件)中,详细请参照<2.5.1 使用配置器生
+成>.
+
+
+8 系统服务等的目标依赖部分
+
+8.0 系统服务的目标依赖部分
+
+target_syssvc.h以及包含于其中的文件(处理器依赖部分,芯片依赖部分和开发环
+境依赖部分中的头文件)含有决定系统服务构成的定义,如串行接口数据和系统日志任
+务相关的设定.
+
+当导入TOPPERS组件系统时,由于系统服务相关设定记述于组件记述文件中,所以可
+能不需要target_syssvc.h(或者其中的内容大大减少).
+
+8.1 系统日志功能的目标依赖部分
+
+当使用系统日志功能时,假如省略起动模块中的bss段清零处理,需增加
+syslog_logmask和syslog_logmask_not初始化为0的处理,使得系统日志功能初始
+化之前所输出的日志信息由底层输出功能输出.
+
+在目标依赖部分中需要实现以下系统日志功能相关的定义.
+
+(8-1-1) TCNT_SYSLOG_BUFFER
+
+定义系统日志功能的日志缓存的大小,未定义时,其默认值为32.
+
+(8-1-2) void target_fput_log(char_t c)
+
+系统日志功能的底层输出函数.根据目标所采用的方法,或显示或输出或保存字符c.
+
+该函数必须是可重入的.如该函数内存在临界区,则需通过SIL中禁止全部中断来而
+实现.同时该函数可能在全中断锁定的状态下被调用,所以其内部不能调用无法在
+全中断锁定状态下执行的函数.
+
+如果系统日志功能的底层输出是通过串行接口进行的,那么最好是何串行接口驱动
+使用不同的端口.但串行接口不足的情况下,二者也可以共享同一串行接口,此时必
+须要考虑避免出现竞争.具体而言,如二者使用同一串行接口,那么实现是必须考虑
+到即使串行接口驱动在访问串行接口的同时也不影响系统日志功能底层输出的动
+作.在系统日志功能的底层输出开始后再进行串行接口驱动的初始化,可能会导致
+乱码的产生.此时对于二者共享的串行接口,如系统日志功能的底层输出侧进行了
+初始化,那么串行接口驱动侧就无需再做初始化.
+
+另外一个问题是,该函数应在哪个文件中实现.系统日志功能的目标依赖部分中并
+没有要求准备函数具体实现的源文件(target_syssvc.c),具体如何由目标决定.
+在内核实现的目标依赖部分中(target_config.c)中也可以实现该函数,此时不要
+把target_fput_log列入重命名的范围内.
+
+8.2 系统日志任务的目标依赖部分
+
+在目标依赖部分中需要实现以下系统日志任务相关的定义.这些定义位于
+target_syssvc.h以及包含于其中的文件中.
+
+(8-2-1) LOGTASK_PRIORITY(可选)
+
+系统日志任务的任务优先级,默认为3.
+
+(8-2-2) LOGTASK_STACK_SIZE(可选)
+
+系统日志任务的任务堆栈大小,默认为1024.
+
+(8-2-3) LOGTASK_PORTID(可选)
+
+系统日志任务所使用的串行接口号,默认为1.
+
+(8-2-4) LOGTASK_INTERVAL(可选)
+
+系统日志任务的动作间隔时间(单位:毫秒),默认为10.
+
+(8-2-5) LOGTASK_FLUSH_WAIT(可选)
+
+在等待日志信息输出时,任务所需等待的单位时间(单位:毫秒),默认为1.
+
+8.3 串行接口驱动的目标依赖部分
+
+目标依赖部分需要实现以下与串行接口驱动相关的定义.除非另有规定,这些定义位
+于target_serial.h以及包含于其他的文件中,必须系统配置信息位于
+target_serial.cfg中,相应的函数实现位于target_serial.c中.
+
+串行接口驱动中依赖于目标串行I/O设备的部分称之为串行I/O驱动,相当于ITRON
+设备驱动设计向导中的PDIC(Primitive Device Interface Component).对应于
+PDIC的文件,如可能其他系统也可共通使用,应放置与pdic目录下.
+		
+8.3.1 变量,数据类型和函数
+
+(8-3-1-1) TNUM_PORT
+
+串行接口驱动所能支持的串行口数目.该宏定义位于target_syssvc以及包含于其他
+的文件中.
+
+(8-3-1-2) void sio_initialize(intptr_t exinf)(可选)
+
+串行I/O驱动的初始化处理,并在target_serial.cfg中通过静态API注册为初始化
+例程.
+
+(8-3-1-3) void sio_terminate(intptr_t exinf)(可选)
+
+串行I/O驱动的结束处理,并在target_serial.cfg中通过静态API注册为结束处理
+例程.
+
+(8-3-1-4) void sio_isr(intptr_t exinf)
+
+串行I/O驱动的中断服务函数,并在target_serial.cfg中通过静态API注册为中断服
+务例程,所对应的中断号等定义位于target_serial.h中.该函数也可注册为中断处
+理函数.
+
+(8-3-1-5) SIOPCB
+
+串行I/O管理块的数据类型(target_serial.h中只需包含数据类型的声明).
+
+(8-3-1-6) SIO_RDY_SND和SIO_RDY_RCV
+
+SIO_RDY_SND为串行I/O可发送回调例程的编号,SIO_RDY_RCV为串行I/O可接受回调
+例程的编号.这两个编号在回调例程禁止/许可服务调用中使用(sio_ena_cbr和
+sio_dis_cbr).
+
+8.3.2 设备服务例程(device service routine)
+
+以下设备服务例程是在至少串行I/O中断被屏蔽的状态下被调用,执行的上下文可
+能时任务上下文也可能是非任务上下文(实现时必须考虑在任何上下文中都能被调
+用).
+
+(8-3-2-1) SIOPCB *sio_opn_por(ID siopid, intptr_t exinf)
+
+打开siopid所指定的串行I/O口,exinf为串行I/O口的扩展信息,用于在调用回调函
+数时区分串行I/O口.
+
+(8-3-2-2) void sio_cls_por(SIOPCB *siopcb)
+
+关闭siopcb所指向的串行I/O口.
+
+(8-3-2-3) bool_t sio_snd_chr(SIOPCB *siopcb, char_t c)
+
+向siopcb所指向的串行I/O口,发送字符c.如果把c填入了发送寄存器,则返回true,
+如果由于前一个字符尚未发送完毕,无法把c填入发送寄存器,则返回false.
+
+(8-3-2-4) int_t sio_rcv_chr(SIOPCB *siopcb)
+
+从siopcb所指向的串行I/O口读取一个字符,如果字符已经被接收,则返回正的字符
+值,如果尚未接收到字符,则返回-1.
+
+(8-3-2-5) void sio_ena_cbr(SIOPCB *siopcb, uint_t cbrtn)
+
+允许siopcb所指向的串行I/O口调用cbrtn所指定的回调例程.cbrtn的值为
+SIO_RDY_SND或SIO_RDY_RCV.
+
+(8-3-2-6) void sio_dis_cbr(SIOPCB *siopcb, uint_t cbrtn)
+
+禁止siopcb所指向的串行I/O口调用cbrtn所指定的回调例程.cbrtn的值为
+SIO_RDY_SND或SIO_RDY_RCV.
+		
+8.3.3 回调例程(callback routine)
+
+串行接口驱动的目标依赖部分在必要的时刻将调用下面位于目标非依赖部分的回调
+例程.如禁止回调,则不会调用这些回调例程.
+
+下述回调例程在非任务上下文中被调用时,至少对应的串行I/O中断将被屏蔽.
+exinf为打开串行I/O时所传递的扩展信息.
+
+(8-3-3-1) void sio_irdy_snd(intptr_t exinf)
+
+串行I/O可发送回调例程.当串行I/O可以继续发送字符时,调用此例程.在该回调例
+程中,调用sio_snd_chr发送后续字符,如无需要发送的字符时,则禁止此回调例程.
+
+(8-3-3-2) void sio_irdy_rcv(intptr_t exinf)
+
+串行I/O可发接收调例程.当串行I/O接收到一个字符时,调用此例程.该例程中,通
+过sio_rcv_chr取出所接收到的字符.
+	
+8.4 内核起动信息输出的目标依赖部分定义
+
+目标依赖分应提供以下针对内核起动时输出信息的定义
+
+(8-4-1) TARGET_NAME
+
+目标名称
+
+(8-4-2) TARGET_COPYRIGHT(可选)
+
+在内核起动信息中的追加目标依赖部分的版权信息时,定义此宏.默认是没有目标依
+赖部分的版权信息.
+	
+8.5 针对内核sample程序和功能测试例程的目标依赖部分定义
+
+目标依赖部分需要提供下述针对核sample程序和功能测试例程的定义.这些定义
+位于target_test.h以及包含于其下的文件中.
+
+(8-5-1) STACK_SIZE(可选)
+
+sample程序和功能测试例程中任务的任务堆栈大小,默认为4096.对于默认任务堆
+栈大小无法满足需求和仿真环境下等等需要较大任务堆栈时,修改此定义.
+
+(8-5-2) CPUEXC1(可选)
+
+sample程序和功能测试例程中所使用的CPU异常处理函数的CPU异常号.  如未定义,
+将不会编译sample程序中与CPU异常相关的代码和功能测试例程中CPU异 常测试相
+关代码.
+
+(8-5-3) RAISE_CPU_EXCEPTION(可选)
+
+该宏定义在C代码中如何触发CPUEXC1所对应的CPU异常.如宏定义CPUEXC1存在,则
+必须定义该宏.
+
+(8-5-4) CANNOT_RETURN_CPUEXC(可选)
+
+由于目标系统限制,如果从CPU异常理处理返回后,如果任务不能继续执行时,定义
+此宏.定义此宏后,功能测试例程的CPU异常测试中,将去除CPU异常处理返回之后的
+处理.sample程序中CPU异常处理相关部分将无法正常运行.
+
+(8-5-5) TASK_PORTID(可选)
+
+sample程序中,定义使用哪一个串行口接收用户命令,默认值为1.
+
+(8-5-6) LOOP_REF(可选)
+
+在宏定义用以在sample程序中测量处理器的速度,默认定义为1000000.对于默认值
+过大需要花费较长时间,或者默认值太小,结果不稳定的情况,修改此定义.
+
+(8-5-7) MEASURE_TWICE(可选)
+
+如定义此宏,则在sample程序中将对处理器的速度进行2次测量.对于类似仿真环
+境下等等处理器速度可能发生变化的情况下,只进行1次测量,结果可能不稳定.此
+时,定义此宏.
+
+(8-5-8) TASK_LOOP(可选)
+
+该宏定义为,在sample程序中,当不测量处理器速度时,任务内部的循环的次数.具
+体定义为使整个循环花费0.4秒所需循环的次数,
+	
+8.6 运行时间直方图统计模块的目标依赖部分定义
+
+当需要对运行时间直方图统计模块做变更时,需要在目标依赖部分中实现下述定义
+.这些定义位于target_test.h以及包含于其下的文件中,并且如存在相应的初始化
+处理,也需要包含在目标依赖部分中.
+
+(8-6-1) HISTTIM(可选)
+
+运行时间直方图统计模块中时刻的数据类型,默认定义为SYSUTM.
+
+(8-6-2) void HIST_GET_TIM(HISTTIM *p_time)(可选)
+
+该宏定义用以获得当前时刻,并保存于p_time所指向的区域,默认定义为get_utm
+
+(8-6-3) uint_t HIST_CONV_TIM(HISTTIM time)(可选)
+
+把运行时间时所获得时刻之差(时间),转换为进行直方图统计时所使用的值.如无
+法区分时间溢出或者结束时刻晚于开始时刻的情况,返回值的最高置为1(比
+INT_MAX的值大).默认定义为把time强制转换为uint_t.
+
+(8-6-4) void HIST_BM_HOOK(void)(可选)
+
+该宏定义为在进行运行时间直方图统计之前所需处理,如清除或填充cache,进行内
+存屏障(memory barrier)处理等等.
+
+9. 其他
+
+9.1 文档
+
+target_user.txt为目标依赖部分的用户手册,根据情况可以分为处理器依赖部分,
+芯片依赖部分和开发环境依赖部分.如果文件较大时,也可以将其分为若干个文件编
+写,此时需在target_user.txt中记述这若干个文件的文件名.
+
+在编写目标依赖部分的用户手册时,应至少将如下几方面的内容包含在内.
+
+(1) 对应目标系统的种类,结构和版本号
+	* 对应目标硬件(开发板等)名称
+	* 结构目标系统的简称 
+	* 目标非依赖部分的版本号
+	* 处理器依赖部分,芯片依赖部分和开发环境依赖部分的构成与版本号
+	* 所使用的PDIC及其版本号
+
+(2) 使用的开发环境以及动作确认的条件(版本,配置项的设置等)
+	* 语言处理工具(编译器,汇编器,链接器等)
+	* 调试环境
+
+(3) 目标定义事项的相关规定
+
+(3-1) 数据类型的相关规定
+	* int_t型,long_t型的大小
+	* char_t型,int_least8_t型,void *型,intptr_t型的大小
+	* 是否支持int8_t型,uint8_t型,int64_t型,uint64_t型,int128_t型,
+	　uint128_t型,float32_t型,double64_t型
+
+(3-2) 中断处理的相关规定
+	* 中断处理函数号与中断号的分配以及两者的对应关系
+	* 中断优先级的级数(TMIN_INTPRI的值)
+	* 是否支持dis_int和ena_int以及其相关限制事项
+  	* CFG_INT的限制事项与扩展(由目标定义的可使用的中断属性)
+	* 不符合TOPPERS标准中断处理模型的的地方
+
+(3-3) 内核管理外中断的相关规定
+	* TMIN_INTPRI是否固定不变,是否可被设置,如果可设置其设置方法又是什么
+	* 除了NMI,是否还有别的内核管理外中断(是否能添加除NMI以外的内核管理外中断)
+	* 内核管理外的中断的设置方法
+	* 对于内核管理外中断是否支持DEF_INH,CFG_INT.
+	* 调用内核管理外中断处理函数时的系统状态与上下文
+	* 内核管理外中断处理函数结束时所进行的处理
+	* 内核管理外中断处理函数的记述方法
+	* 可能在内核内的中断出入口处理中引发的CPU异常
+
+(3-4) CPU异常处理的相关规定
+	* CPU异常处理函数号的分配
+	* 中断优先级屏蔽是否和TMIN_INTPRI一样,当中断优先级屏蔽高于TMIN_INTPRI时
+	  发生的CPU异常是否视为内核管理外的CPU异常.
+	* 可能在内核内的CPU异常出入口处理时引发的CPU异常
+
+(3-5) 参照性能评价用系统时刻的相关规定
+	* 是否支持get_utm,以及其限制事项
+
+(3-6) 扩展包的相关规定
+	* 是否支持各种扩展包
+		- 互斥功能扩展包
+		- 任务运行超时处理函数功能扩展包
+		- 任务优先级扩展包
+		- 受限任务扩展包
+		- 动态创建功能扩展包
+	* 支持任务运行超时处理函数功能扩展包时,可指定处理器时间的最大值
+	  (TMAX_OVRTIM的值)
+	* 支持动态创建功能扩展包时,内存动态管理的方法
+
+(3-7) 其他
+	* 其他限制事项
+	* 其他扩展功能
+
+(4) 内核起动/结束处理的相关信息
+	* 起动模块中的处理内容
+	* 当在起动模块调用hardware_init_hook时,由应用自定义hardware_init_hook的方法
+	  及限制事项等
+	* 内核结束后的处理
+
+(5) 内存映射
+	* 默认的内存映射表以及变更映射表的方法
+
+(6) 系统时钟驱动的相关信息
+	* 系统时钟的长度及其变更方法
+	* 使用的时钟源(定时器)
+	* 系统时钟中断的中断优先级变更方法
+	* 任务运行超时定时器中断的中断优先级变更方法
+
+(7) 串行接口驱动的相关信息
+ 	* 使用的资源(SIO控制器)
+	* 通信参数(波特率,bit数,是否有奇偶校验,起始位)
+
+(8) 系统日志功能的信息
+	* 系统日志底层输出的实现方法
+	* 通信参数(波特率,bit数,是否有奇偶校验,起始位)
+
+(9) 系统构建步骤
+
+(10) 目标系统注意事项
+	* 任务上下文所包含的寄存器和未包含的寄存器
+
+(11) 移植到同类目标系统的参考信息
+
+(12) 目录与文件构成
+
+(13) 版本历史
+
+另外,如果有必要的话请编写目标依赖部分的设计备忘录,即target_design.txt.根
+据情况可以分为处理器依赖部分,芯片依赖部分和开发环境依赖部分.如果文件较大
+时,也可以将其分为若干个文件编 写,此时需在target_design.txt中记述这若干个
+文件的文件名.
+
+9.2 包记述文件
+
+在发布包时(个别发布包或者简易发布包)时,需要准备相应的文件记述发布包中所
+包含文件.该文件的文件名,对于个别发布包为MANIFEST,对于简易发布包为
+E_PACKAGE.
+
+比如用arch/arm_gcc下的MANIFEST文件生成个别发布包时,执行如下命令
+	
+	% utils/makerelease arch/arm_gcc/MANIFEST
+
+通过该命令,将生成RELEASE/asp_arch_arm_gcc-<b版本号>.tar.gz.用
+target/at91skyeye_gcc下的E_PACKAGE文件生成简易发布包时,执行如下命令.
+
+	% utils/makerelease target/at91skyeye_gcc/E_PACKAGE
+
+通过该命令,将生成RELEASE/asp_at91skyeye_gcc-<版本号>.tar.gz(如果没有
+RELEAS目录,则会新建该目录).
+
+另外,辅助工具makerelease一般认为ASP内核源文件所在的目录的名称为asp(如果
+不为asp虽然也可以生成压缩包但解压后的目录名则不再是asp).这里所说的标准
+的tar命令是指GNU tar(既支持z配置项).
+
+发布包记述文件内容为发布包所包含的文件名以及其相对于记述文件的相对路径,
+且一行记述一个文件.另外有必要的话请将下述内容记述于其中.
+
+(a) E_PACKAGE <简易发布包名>
+
+指定简易发布包名.应记述在简易发布包记述文件(E_PACKAGE)的开头.简易发布包
+名的格式为asp_<目标系统简称>.比如,目标系统简称为at91skyeye_gcc时,简易发
+布包名为asp_at91skyeye_gcc.为了与个别发布包相区别简易发布包名中不含
+"target".
+
+(b) PACKAGE <个别发布包名>
+
+指定个别发布包名.应记述在个别发布包记述文件(MANIFEST)的开头.并且在包含
+于其中的各文件开头中也做同样的记述,内容为所属个别发布包的名称.目标依赖
+部分的个别发布包名的格式是将该个别发布包记述文件与ASP源文件的根目录的相
+对路径中的"/"换成"_",再在该字符串的前面加上"asp_".比如某个别发布包的文
+件清单与根目录的相对路径为arch/arm_gcc/MANIFEST则该目标依赖部分的个别发
+布包名为asp_arch_arm_gcc.
+
+(c) VERSION <版本号>
+
+指明发布包的版本号,记述在简易发布包和个别发布包的记述文件中.对于简易发布
+包经常将其封装日期作为其版本号,此时发布包号为%date.
+
+关于版本号的确定方法请参照<TOPPERS/ASP内核用户手册>的<2.2 简易发布包>及
+<2.3 个别发布包>.
+
+(d) INCLUDE <文件名>
+
+包含其他发布包的记述文件.原则上,简易发布包的记述文件只能包含个别发布包的
+记述文件.被个别发布包记述文件所包含的所有文件中的个别发布包名必须全部一
+致.
+
+10. 参考
+
+10.1 目标依赖部分文件一览
+
+标准情况下目标依赖部分由如下文件构成.
+
+
+Makefile.target		Makefile的目标依赖部分(第2章)
+target_offset.tf	生成偏移文件的模板文件(2.5.1节)
+
+target_stddef.h		TOPPERS共通定义(t_stddef.h)的目标依赖部分(第3
+					章).应用和内核均包含该头文件.
+target_sil.h		系统接口层(sil.h)的目标依赖部分(第4章).应用和内核
+					均包含该头文件.
+target_kernel.h		内核API的目标依赖部分(第5章).应用和内核均包含该头
+					文件.	
+
+target_config.h		内核实现的目标依赖部分头文件(第6章).该头文件仅被内核包
+					含.
+target_config.c		内核实现目标依赖部分的C语言实现部分(第6章,可选).
+target_support.S	内核实现目标依赖部分的汇编语言实现部分(第6章,可选).
+target_rename.def	用于内核实现目标依赖部分的重命名记述(6.12节).
+target_rename.h		根据target_rename.def生成的头文件(6.12节).
+target_unrename.h	根据target_rename.def生成的头文件(6.12节).
+target_timer.cfg	系统时钟驱动的系统配置文件(6.13节).
+target_timer.h		系统时钟驱动的头文件(6.13节).仅被内核包含.
+target_timer.c		系统时钟驱动的实现文件(6.13节,可选).
+系统简称.h			目标硬件资源头文件(中断处理函数号,CPU异常处理函数号,设
+					备寄存器地址等).内核和应用均包含该头文件.
+
+target_def.csv		配置器的符号取值表的目标依赖部分(第7章,可选).
+target.tf			配置器第二阶段(pass2)模板文件的目标依赖部分(7.2节).
+target_check.tf		配置器第三阶段(pass3)模板文件的目标依赖部分(7.3节).
+target_cfg1_out.h	链接cfg1_out.c所必要的符号定义文件(7.4节).
+
+target_syssvc.h		系统服务的目标依赖定义(8.0节).
+target_serial.cfg	串行接口驱动的系统配置文件(8.3节).
+target_serial.h		串行接口驱动的头文件(8.3节).该文件仅被串行接口驱动包含.
+target_serial.c		串行接口驱动的实现文件(8.3节,可选).
+target_test.h		测试程序组的目标依赖定义(8.4节).
+
+target_user.txt		目标依赖部分用户手册(9.1节)
+target_design.txt	目标依赖部分设计备忘(9.1节,可选)
+MANIFEST			个别发布包中的文件清单(9.2节,可选).
+E_PACKAGE			简易发布包中的文件清单(9.2节,可选).
+
+完

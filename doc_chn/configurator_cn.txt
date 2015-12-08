@@ -1,0 +1,1047 @@
+﻿		TOPPERS/ASP内核
+	    配置器标准
+	    对应版本: Release 1.7.0
+		最后更新: 2010年11月20日
+
+本文档对TOPPERS/ASP内核配置器生成的标准配置文件进行详细说明.目标依赖的
+相关生成内容,不在此文档说明之列.由华中科技大学瑞萨高级嵌入式控制器实验
+室组织翻译制作,主要参与人:任慰,王彦明,方华启,汪卓
+
+----------------------------------------------------------------------
+ TOPPERS/ASP Kernel
+     Toyohashi Open Platform for Embedded Real-Time Systems/
+     Advanced Standard Profile Kernel
+
+ Copyright (C) 2005-2010 by Embedded and Real-Time Systems Laboratory
+             Graduate School of Information Science, Nagoya Univ., JAPAN
+ 
+用户只要符合以下的(1)－(4)条件,或者符合Free Software Foundation机构公布
+的GNU General Public License第2版中记述的条件,著作权所有者将无偿同意本软
+件(含本软件修正品,以下同)的使用,复制,修改及再分发(以下统称为使用).
+
+(1).以源代码形式使用本软件时,须原封不动地把著作权申明,使用条件及以下的无
+	保障规定放入源代码中.
+
+(2).以程序库等能被其它软件调用的形式再分发时,须在再分发说明书(使用说明等
+	)中,写入上述的著作权申明,使用条件及以下的无保障规定.
+
+(3).把本软件嵌入机器等,以不能被其它软件调用的形式使用本软件时,须满足以下
+	条件中的一条.
+	(a).再分发时使用书(使用说明等)中,须写入上述著作权申明,使用条件及以下
+	的无保障规定.
+	(b).以其它形式再分发本软件时,须向TOPPERS协会报告. 
+
+(4).因使用本软件而引起的直接或间接的损失,均不得向上述著作权所有者及
+	TOPPERS协会要求承担责任.
+
+本软件以无保障方式提供给社会.上述著作权所有者及TOPPERS协会对本软件及能
+否使用本软件的探讨均不负任何责任.同时,对因使用上述软件而引起的直接或间
+接的损失,均不负任何责任.
+
+Id: configurator.txt 1960 2010-11-20 02:20:40Z ertl-hiro $
+----------------------------------------------------------------------
+
+@ 目录
+
+# 生成文件的种类
+# 静态API一览
+# 内核构建.初始化头文件(kernel_cfg.h)
+# 内核构建.初始化文件(kernel_cfg.c)
+	(1) 固定生成部分
+	(2) 文件包含指令(#include)的处理
+	(3-1) 追踪日志的默认宏定义
+	(3-2) 内核对象ID号变量定义
+	(4) 内核对象的相关定义
+	(5) 中断处理的相关定义
+	(6) CPU异常处理的相关定义
+	(7) 非任务上下文堆栈的定义
+	(8) 时间事件管理的相关定义
+	(9) 各模块初始化函数的定义
+	(10) 初始化例程的定义
+	(11) 结束处理例程的定义
+
+ 
+@ 生成文件的种类
+
+ASP内核的配置器会对系统配置文件进行处理,将生成内核构建.初始化文件
+(kernel_cfg.c)和相应的头文件(kernel_cfg.h),以及处理过程中其他必要的中间
+文件.
+
+
+@ 静态API一览
+
+由ASP内核配置器处理的静态API如下.
+
+(1) 任务管理功能
+	CRE_TSK(ID tskid, { ATR tskatr, intptr_t exinf, TASK task,
+			PRI itskpri, SIZE stksz, STK_T *stk })
+
+(2) 任务异常处理功能
+	DEF_TEX(ID tskid, { ATR texatr, TEXRTN texrtn })
+
+(3) 同步.通信功能
+	CRE_SEM(ID semid, { ATR sematr, uint_t isemcnt, uint_t maxsem })
+	CRE_FLG(ID flgid, { ATR flgatr, FLGPTN iflgptn })
+	CRE_DTQ(ID dtqid, { ATR dtqatr, uint_t dtqcnt, void *dtqmb })
+	CRE_PDQ(ID pdqid, { ATR pdqatr, uint_t pdqcnt, PRI maxdpri, void *pdqmb })
+	CRE_MBX(ID mbxid, { ATR mbxatr, PRI maxmpri, void *mprihd })
+
+$ dtqmb, pdqmb, mprihd目前必须为NULL.
+
+(4) 内存池管理功能
+	CRE_MPF(ID mpfid, { ATR mpfatr, uint_t blkcnt, uint_t blksz,
+			    MPF_T *mpf, void *mpfmb })
+
+$ mpfmb目前必须为NULL.
+
+(5) 时间管理功能
+	CRE_CYC(ID cycid, { ATR cycatr, intptr_t exinf, CYCHDR cychdr,
+					RELTIM cyctim, RELTIM cycphs })
+	CRE_ALM(ID almid, { ATR almatr, intptr_t exinf, ALMHDR almhdr })
+
+(6) 中断管理功能
+	CFG_INT(INTNO intno, { ATR intatr, PRI intpri })
+	ATT_ISR({ ATR isratr, intptr_t exinf, INTNO intno, ISR isr, PRI isrpri })
+	DEF_INH(INHNO inhno, { ATR inhatr, INTHDR inthdr })
+
+(7) CPU异常管理功能
+	DEF_EXC(EXCNO excno, { ATR excatr, EXCHDR exchdr })
+
+(8) 系统构建管理功能
+	DEF_ICS({ SIZE istksz, STK_T *istk })
+	ATT_INI({ ATR iniatr, intptr_t exinf, INIRTN inirtn })
+	ATT_TER({ ATR teratr, intptr_t exinf, TERRTN terrtn })
+
+这些静态API的参数中,ID型参数为内核对象识别名,指针型参数(void *,TASK,
+TEXRTN, CYCHDR,ALMHDR,ISR,INTHDR,EXCHDR,INIRTN,TERRTN,STK_T *, MPF_T *)
+以及intptr_t型参数为地址常量(函数指针或者数组指针),其它参数为整型常量
+参数.
+
+
+@ 内核构建.初始化头文件(kernel_cfg.h)
+
+在内核构建.初始化头文件中生成的定义如下.
+
+(1) 固定生成部分
+
+为防止(kernel_cfg.h)被重复包含引用,将生成相应的宏定义.具体而言,在文件开
+头生成如下宏定义.
+
+#ifndef	TOPPERS_KERNEL_CFG_H 
+#define	TOPPERS_KERNEL_CFG_H
+
+在文件末尾生成.
+
+#endif	/* TOPPERS_KERNEL_CFG_H */
+
+(2) 内核对象数的定义
+
+生成内核所支持的内核对象数量的宏定义.具体生成如下内容.
+
+#define TNUM_TSKID	<任务数> 
+#define TNUM_SEMID	<信号量数>
+#define TNUM_FLGID	<事件标志数>
+#define TNUM_DTQID	<数据队列数>
+#define TNUM_PDQID	<优先级数据队列数>
+#define TNUM_MBXID	<邮箱数>
+#define TNUM_MPFID	<固定长内存池数>
+#define TNUM_CYCID	<周期定时器数>
+#define TNUM_ALMID	<单次定时器数>
+
+(3) 内核对象ID号的定义
+
+配置器将会给每一个内核对象自动分配ID,以宏定义的形式实现内核对象名到内核
+对象ID的转换.例如,将生成如下宏定义.
+
+#define TASK1	1
+#define TASK2	2
+#define SEM1	1
+
+@ 内核构建.初始化文件(kernel_cfg.c)
+
+(1) 固定生成部分
+
+将生成对kernel_cfg.c需要的相关头文件,以及内核对象ID自动分配结果的包含引
+用.具体生成如下内容.
+
+#include "kernel/kernel_int.h"
+#include "kernel_cfg.h"
+
+(2) 文件包含指令(#include)的处理
+
+配置器根据系统配置文件中的内容,生成一系列文件包含指令(#include).这些指令
+和系统配置文件中的C语言文件包含指令(#include)相同,例如对应于:
+
+#include "sample1.h"
+
+将会生成
+
+#include "sample1.h"
+
+这些#include指令的顺序和系统配置文件中所记述的#include指令的顺序一致.
+
+(3-1) 追踪日志宏的默认宏定义
+
+生成kernel_cfg.c中使用到的追踪日志的默认宏定义.具体如下.
+
+#ifndef LOG_ISR_ENTER
+#define LOG_ISR_ENTER(intno)
+#endif /* LOG_ISR_ENTER */
+
+#ifndef LOG_ISR_LEAVE
+#define LOG_ISR_LEAVE(intno)
+#endif /* LOG_ISR_LEAVE */
+
+(3-2) 内核对象ID号变量的定义
+
+根据相关作用于配置器的选项(--external-id),对于相应的内核对象,生成对应
+的内核对象ID号变量.该变量的变量名由两部分组成,前半部分为内核对象名,后半
+部分附加"_id",变量类型为ID型并具有const属性,且将初始化相应的内核对象ID
+号.例如,生成如下变量定义.
+
+const ID TASK1_id = 1;
+const ID TASK2_id = 2;
+const ID SEM1_id = 1;
+
+(4) 内核对象的相关定义
+
+对于在系统配置文件中,由内核对象生成API(CRE_XXX)所生成的内核对象,将生成
+与之实现相关的定义.
+
+配置器将生成同类内核对象的API归类,为相应的内核对象自动分配ID.内核对象之
+间的ID彼此不会重复,且连续分布.
+
+根据相关作用于配置器的选项(--id-input-file),可以指定内核对象的ID号.如果
+同类型的不同内核对象分配到相同的ID号,或者ID号不连续(ASP内核是在假定ID号
+连续的情况下实现的)情况下,配置器将会报错.
+
+另外根据相关作用于配置器的选项(--id-output-file),配置器会在选项指定的
+文件中输出内核对象名和对应分配的内核对象ID号.
+
+各内核对象相关定义的标准构成,具体如下.不同类型的内核对象会有不同之处,
+不同之处会逐项说明.
+
+(a)	最大内核对象ID号变量的定义
+
+配置器会为每一个类型的内核对象生成一个变量,其值为对应内核对象类型的ID号
+的最大值.内核对象简记为(XXX/xxx), 生成如下内容.
+
+const ID _kernel_tmax_xxxid = (TMIN_XXXID + TNUM_XXXID - 1);
+
+(b)	内核对象所必须的内存区域的定义
+
+根据不同类型的内核对象,需分配必要的内存区域(如任务堆栈,固定长内存池).具体
+定义,针对各类型内核对象逐一说明.
+
+(c)	内核对象初始化块定义
+
+生成内核对象初始化块的定义.内核对象简记为(XXX/xxx), 生成的定义如下.
+
+const XXXINIB _kernel_xxxinib_table[TNUM_XXXID] = {
+	<ID号为1的内核对象的初始化信息>,
+	<ID号为2的内核对象的初始化信息>,
+			... ...
+	<ID号为TNUM_XXXID的内核对象的初始化信息>
+};
+
+内核对象的初始化形式因内核对象类型而异,具体的,在相应类型内核对象中逐一说
+明.
+
+(d) 内核对象控制块的定义 
+
+生成内核对象控制块的定义.内核对象简记为(XXX/xxx), 生成的定义如下.
+
+XXXCB _kernel_xxxcb_table[TNUM_XXXID];
+
+(4-1) 关于任务的定义
+
+在ASP内核中,任务数量不能为0,所以必须生成任务的相关定义.
+
+任务简记为(TSK)或(tsk),但是任务初始化块的数据类型为TINIB,变量名为
+_kernel_tinib_table.任务控制块的数据类型为TCB,变量名为_kernel_tcb_table
+(用(T/t)代替(TSK/tsk)).
+
+任务初始化块中,不仅有静态API(CRE_TSK)所指定的信息,也包含静态API(
+DEF_TEX)指定的信息.
+
+下面是当系统配置文件中包含以下静态API时,配置器所生成的信息的说明.
+
+CRE_TSK(tskid, { tskatr, exinf, task, itskpri, stksz, stk });
+DEF_TEX(tskid, { texatr, texrtn });
+
+(4-1-1) 任务所必须的内存区域
+
+任务堆栈(task stack)是任务所必须的内存区域,当stk为NULL的时候,即指定由配
+置器生成相应的任务堆栈,为了确保任务所必要的栈空间,针对上述静态API,生成
+如下定义.
+
+*仅在stk为NULL的时候生成
+
+static STK_T _kernel_stack_<任务名>[COUNT_STK_T(stksz)];
+
+(4-1-2) 任务的初始化信息
+
+任务初始化块中生成的任务初始化信息,其形式如下
+
+	{ (tskatr), (intptr_t)(exinf), (task), INT_PRIORITY(itskpri),
+			(stksz), (stk), (texatr), (texrtn) }
+
+这里,在stk为NULL时,将以ROUND_STK_T(stksz)代替(stksz),(_kernel_stack_<
+任务名>)代替(stk).针对CRE_TSK,在CRE_TSK没有对应的DEF_TEX的时,texatr
+为TA_NULL,texrtn为NULL(即没有定义任务异常).
+
+(4-1-3) 定义任务生成顺序表
+
+对于任务的生成顺序(即对应任务生成静态API的记述顺序),有必要输出一张任务
+顺序表.这是因为必须按生成顺序进行任务的初始化(更具体的说还包括任务的启
+动).
+
+具体而言,生成如下内容.
+
+const ID _kernel_torder_table[TNUM_TSKID] = {
+	<第一个生成的任务的ID号>,
+	<第二个生成的任务的ID号>,
+				……
+	<最后生成的任务的ID号>
+};
+
+(4-1-4) 报错
+
+当满足以下与任务相关的条件时,配置器将会报错.
+
+* 配置器自身检出的错误
+# 同一tskid却有多个CRE_TSK(E_OBJ)
+# 没有与DEF_TEX对应的CRE_TSK(E_NOEXS)
+# 同一tskid却有多个DEF_TEX(E_OBJ)
+
+* 配置器第二阶段(pass2)中检出的错误
+
+# 任务属性不正确.当所有任务的tskatr不为(TA_ACT)时(E_RSATR)(即至少要有一
+个任务的tskatr为 (TA_ACT)).
+	$ 可以在目标依赖部分追加任务属性(TARGET_TSKATR)
+# 不满足(TMIN_TPRI <= itskpri && itskpri <= TMAX_TPRI)(E_PAR)
+# stksz值为零或者比目标定义的最小值(TARGET_MIN_STKSZ)更小(E_PAR)
+# stksz值不正确时(E_PAR)(即任务堆栈不对齐)
+	- 不是目标依赖部分的值(CHECK_STKSZ_ALIGN)的倍数
+	$ 该检错仅在stk不为NULL时进行
+# texatr不为(TA_NULL)(E_RSATR)
+
+* 配置器第三阶段(pass3)中检出的错误
+# task和texrtn不是正确的程序地址(E_PAR)
+	- 不是目标依赖部分的值(CHECK_FUNC_ALIGN)的倍数
+	- 为NULL时(目标依赖,CHECK_FUNC_NONNULL)
+# stk不是正确的任务堆栈起始地址(E_PAR)
+	- 不是目标依存部分的值(CHECK_STACK_ALIGN)的倍数
+	- 为NULL时(目标依赖,CHECK_STACK_NONNULL)
+
+(4-2) 关于信号量的定义
+
+信号量简记为(SEM/sem),以下为系统配置文件包含以下静态API时,生成信息的说
+明.另外,不需要给信号量分配额外内存.
+
+CRE_SEM(semid, { sematr, isemcnt, maxsem });
+
+(4-2-1) 信号量的初始化信息
+
+信号量初始化块中生成的初始化信息,形式如下．
+
+	{ (sematr), (isemcnt), (maxsem) }
+
+(4-2-2) 报错
+
+当满足以下与信号量相关的条件时,配置器将会报错.
+
+* 配置器自身检出的错误
+# 同一semid对应多个CRE_SEM(E_OBJ)
+
+* 配置器第二阶段(pass2)中检出的错误
+# 信号量属性不正确.sematr不为(TA_TPRI||TA_TFIFO)(E_RSATR)
+# 不满足(0 <= isemcnt && isemcnt <= maxsem)(E_PAR)
+# 不满足(1 <= maxsem && maxsem <= TMAX_MAXSEM)(E_PAR)
+
+(4-3) 事件标志的定义
+
+事件标志简记为(FLG/flg),以下为系统配置文件包含下述API时,生成信息的说明.
+另外,不需要给事件标志分配额外内存.
+
+CRE_FLG(flgid, { flgatr, iflgptn });
+
+(4-3-1) 事件标志的初始化信息
+
+事件标志初始化块中生成的初始化信息,形式如下.
+
+	{ (flgatr), (iflgptn) }
+
+(4-3-2) 报错
+
+当满足以下与信号量相关的条件时,配置器将会报错
+
+* 配置器自身检出的错误
+# 同一flgid对应多个CRE_FLG(E_OBJ)
+
+* 配置器第二阶段(pass2)中检出的错误
+# 事件标志属性不正确.flgatr不为
+((TA_TFIFO||TA_TPRI)|(TA_WMUL||TA_WSGL)|[TA_CLR])(E_RSATR)
+
+(4-4) 数据队列的定义
+
+数据队列简记为(DTQ/dtq),以下为系统配置文件包含下述API的时候,生成信息的
+说明.
+
+CRE_DTQ(dtqid, { dtqatr, dtqcnt, dtqmb });
+
+(4-4-1) 数据队列所必须的内存区域
+
+对于数据队列来说,必须为其分配必要内存区域,用于其自身的管理.需要给每个
+数据队列分配管理空间.为了确保数据队列所必要的内存区域,对应上述API,生
+成如下定义.
+
+* 仅在dtqcnt不为0时生成
+static DTQMB _kernel_dtqmb_<数据队列名>[dtqcnt];
+
+(4-4-2) 数据队列的初始化信息
+
+数据队列初始化块中生成的初始化信息,形式如下.
+
+	{ (dtqatr), (dtqcnt), (_kernel_dtqmb_<数据队列名>) }
+
+若dtqcnt为0,_kernel_dtqmb_<数据队列名>应为NULL.
+
+(4-4-3) 报错
+
+当满足以下与数据队列相关的条件时,配置器将会报错.
+
+* 配置器自身检出的错误
+# 同一dtqid对应多个CRE_DTQ(E_OBJ)
+
+* 配置器第二阶段(pass2)中检出的错误
+# 数据队列属性不正确.dtqatr不为(TA_TPRI||TA_TFIFO)(E_RSATR)
+# dtqmb不为NULL(E_NOSPT)
+
+(4-5) 优先级数据队列的定义
+
+优先级数据队列简记为(PDQ/pdq),以下为系统配置文件包含下述静态API的时候,生成
+信息的说明.
+
+CRE_PDQ(ID pdqid, { pdqatr, pdqcnt, maxdpri, pdqmb });
+
+(4-5-1) 优先级数据队列所必须的内存区域
+
+对于优先级据队列来说,必须为其分配必要内存区域,用于其自身的管理.需要
+给每个优先级数据队列分配管理空间.为了确保优先级数据队列所必要的内存空
+间,对应上述API,生成如下定义.
+
+* 仅在pdqcnt不为0时生成
+static PDQMB _kernel_pdqmb_<优先级数据队列名>[pdqcnt];
+
+(4-5-2) 优先级数据队列的初始化信息
+
+优先级数据队列初始化块中生成的优先级数据队列初始化信息.形式如下.
+
+	{ (pdqatr), (pdqcnt), (maxdpri), (_kernel_pdqmb_<优先级数据队列名>) }
+
+pdqcnt为0时, _kernel_pdqmb_<优先级数据队列名>应为NULL.
+
+(4-5-3) 报错
+当满足以下与优先级数据队列相关的条件时,配置器将会报错.
+
+* 配置器自身检出的错误
+# 同一pdqid对应多个CRE_PDQ(E_OBJ)
+
+* 配置器第二阶段(pass2)中检出的错误
+# 优先级数据队列属性不正确.pdqatr不为(TA_TPRI||TA_TFIFO)(E_RSATR)
+# 不满足(TMIN_DPRI <= maxdpri && maxdpri <= TMAX_DPRI)(E_PAR)
+# pdqmb不为NULL(E_NOSPT)
+
+(4-6) 邮箱的定义
+
+邮箱简记为(MBX/mbx),以下为系统配置文件包含下述API时,生成信息的说明.
+另外,不需要给邮箱分配额外内存.
+
+CRE_MBX(mbxid, { mbxatr, maxmpri, mprihd });
+
+(4-6-1) 邮箱的初始化信息
+
+邮箱的初始化块中生成的初始化信息,形式如下.
+
+	{ (mbxatr), (maxmpri) }
+
+(4-6-2) 报错
+
+当满足以下与邮箱相关的条件时,配置器将会报错.
+
+* 配置器自身检出的错误
+# 同一mbxid对应多个CRE_MBX(E_OBJ)
+
+* 配置器第二阶段(pass2)中检出的错误
+# 邮箱属性不正确.mbxatr不为((TA_TFIFO||TATA_TPRI)|(TA_MPRI||TA_MFIFO))(E_RSATR)
+# 不满足(TMIN_MPRI <= maxmpri && maxmpri <= TMAX_MPRI)(E_PAR)
+# mprihd不为NULL(E_NOSPT)
+
+(4-7) 固定长内存池的定义
+
+固定长内存池简记为(MPF/mpf).以下为系统配置文件包含下述API的时候,生成信
+息的相关记述.
+
+CRE_MPF(mpfid, { mpfatr, blkcnt, blksz, mpf, mpfmb });
+
+(4-7-1) 固定长内存池所必须的内存区域
+
+对于固定长内存池来说,必须为其分配必要内存区域,用于其自身的管理和存储数
+据(memory pool).需要给每个固定长内存池分配管理空间和数据空间.为了确保
+固定长内存池所必要的内存区域,对应上述API,生成如下定义.
+
+*仅在mpf为NULL时生成
+static MPF_T _kernel_mpf_<固定长内存池名>[(blkcnt) * COUNT_MPF_T(blksz)];
+								
+*固定生成
+static MPFMB _kernel_mpfmb_<固定长内存池名>[blkcnt];
+
+(4-7-2) 固定长内存池的初始化信息
+
+固定长内存池的初始化块中生成的初始化信息,形式如下.
+
+	{ (mpfatr), (blkcnt), ROUND_MPF_T(blksz), mpf,
+			(_kernel_mpfmb_<固定长内存池名>) }
+
+mpf为NULL时,mpf应为_kernel_mpf_<固定长内存池名>.
+
+(4-7-3) 报错
+
+当满足以下与固定长内存池相关的条件时,配置器将会报错.
+
+* 配置器自身检出的错误
+# 同一mpfid对应多个CRE_MPF(E_OBJ)
+
+* 配置器第二阶段(pass2)检出错误
+# 固定长内存池属性错误.mpfatr不为(TA_TPRI|TA_TFIFO)(E_RSATR)
+# blkcnt为0(E_PAR)
+# blksz为0(E_PAR)
+# mpfmb不为NULL(E_NOSPT)
+
+* 配置器第三阶段(pass3)中检出错误
+# mpf不是固定长内存池的正确的地址(E_PAR)
+	- 不是目标依赖部分值(CHECK_MPF_ALIGN)的倍数
+	-为NULL(目标依赖,CHECK_MPF_NONNULL)
+
+(4-8) 周期定时器的定义
+
+周期定时器简记为(CYC/cyc).以下为系统配置文件包含下述API的时候,生成信息
+的说明.另外,不需要给周期定时器分配额外内存.
+
+CRE_CYC(cycid, { cycatr, exinf, cychdr, cyctim, cycphs });
+
+(4-8-1) 周期定时器的初始化信息
+
+周期定时器初始化块中生成的初始化信息,形式如下.
+
+	{ (cycatr), (intptr_t)(exinf), (cychdr), (cyctim), (cycphs) }
+
+(4-8-2) 报错
+
+当满足以下周期定时器相关的条件时,配置器将会报错.
+
+* 配置器自身检出的错误
+# 同一cycid对应多个CRE_CYC(E_OBJ)
+
+* 配置器第二阶段(pass2)检出错误
+# 周期定时器属性错误cycatr不为((TA_HLNG || TA_ASM)|[TA_STA]|[TA_PHS]］)(E_RSATR)
+# 不满足(0 < cyctim && cyctim <= TMAX_RELTIM)(E_PAR)
+# 不满足(0 <= cycphs && cycphs <= TMAX_RELTIM)(E_PAR)
+# 警告:cycphs为0时,cycatr为TA_STA
+
+* 配置器第三阶段(pass3)中检出错误
+# cychdr不是正确的的地址(E_PAR)
+	- 不是目标依赖部分值(CHECK_FUNC_ALIGN)的倍数
+	- 为NULL(目标依赖,CHECK_FUNC_NONNULL)
+
+(4-9) 单次定时器的定义
+
+单次定时器简记为(ALM/alm).以下为系统配置文件包含下述API的时,生成信息的
+说明.另外,不需要给单次定时器分配额外内存.
+
+CRE_ALM(ID almid, { almatr, (intptr_t)(exinf), almhdr });
+
+(4-9-1) 单次定时器的初始化信息
+
+单次定时器初始化块中生成的初始化信息,形式如下
+
+	{ (almatr), (exinf), (almhdr) }
+
+(4-9-2) 报错
+
+当满足以下单次定时器相关的条件时,配置器将会报错.
+
+* 配置器自身检出的错误
+# 同一almid对应多个CRE_ALM(E_OBJ)
+
+* 配置器第二阶段(pass2)检出错误
+# 单次定时器属性错误.almatr不为(TA_HLNG||TA_ASM)(E_RSATR)
+
+* 配置器第三阶段(pass3)中检出错误
+# almhdr不是正确的地址(E_PAR)
+	- 不是目标依赖部分值(CHECK_FUNC_ALIGN)的倍数
+	- 为NULL(目标依赖,CHECK_FUNC_NONNULL)
+
+(5) 中断相关的定义
+
+中断相关信息因目标硬件的不同而有所区别.当没有设定中断相关的定义依赖于
+目标硬件时,将会生成下述标准信息,反之不会生成(5-1)和(5-3)所记述的信息(
+仅生成(5-2)记述的相关信息).
+
+(5-1) 中断请求线的相关定义
+
+对于用静态API(CFG_INT)设置了相应属性的中断请求线,会生成如下相关定义.
+
+以下为系统配置文件中包含下述静态API的时,生成信息的相关说明.
+
+CFG_INT(INTNO intno, { intatr, intpri });
+
+(5-1-1) 中断请求线数量
+
+通过宏定义(#define)定义经CFG_INT配置的中断请求线的数量,并定义相应的变量
+.具体生成以下内容.
+
+#define TNUM_INTNO <设定的中断请求线数>
+const uint_t	_kernel_tnum_intno = TNUM_INTNO;
+
+(5-1-2) 中断请求线初始化块的定义
+
+中断请求线初始化块的生成如下.
+
+const INTINIB _kernel_intinib_table[TNUM_INTNO] = {
+	<中断请求线1的初始化信息>,
+	<中断请求线2的初始化信息>,
+				……
+	<中断请求线TNUM_INTNO的初始化信息>
+};
+
+其中,各个中断请求线的初始化信息的形式如下
+
+	{ (intno), (intatr), (intpri) }
+
+(5-1-3) 报错
+
+当满足以下中断请求线相关的条件时,配置器将会报错.
+
+* 配置器第二阶段(pass2)检出错误
+# intno不正确(E_PAR)
+# intno未事先定义(E_OBJ)
+# 中断请求线属性不正确.intatr不为(TA_NULL || TA_ENAINT ||TA_EDGE )(E_RSATR)
+	$ 可在目标依赖部分中追加中断的属性(TARGET_INTATR)
+# 属于内核管理的intno, 其对应的intpri比TMIN_INTPRI更小(E_OBJ)
+
+# 属于内核管理外的intno,其对应的intpri比TMIN_INTPRI更大(E_OBJ)
+# intpri不正确(E_PAR)
+
+* 有必要的话可让目标依赖部分检出的错误
+# 作为中断属性的intatr被设为了不合理的值(E_RSATR)
+# 作为中断优先级的intpri被设为了不合理的值(E_PAR)
+# 给只能设为相同优先级的中断请求线设定了不同的中断优先级(E_PAR)
+
+(5-2) 中断服务例程的相关定义
+
+(5-2-1) 中断处理函数的生成
+
+针对系统配置文件中添加中断服务例程的静态API(ATT_ISR),会生成一个函数,该
+函数的功能是依次调用拥有同一中断号的中断服务例程.
+
+比如针对下述静态API.
+
+ATT_ISR({ isratr_1, exinf_1, intno, isr_1, isrpri_1 });
+ATT_ISR({ isratr_2, exinf_2, intno, isr_2, isrpri_2 });
+	……
+ATT_ISR({ isratr_n, exinf_n, intno, isr_n, isrpri_n });
+
+会生成下述函数.上述静态API中的isrpri_1,isrpri_2,……,isrpri_n是按其值从
+小到大排列的,值相同时,按照系统配置文件中对应静态API的编写顺序排列 .
+
+static void
+_kernel_inthdr_<intno>(void)
+{
+	PRI		saved_ipm;
+
+	i_begin_int(intno);
+	saved_ipm = i_get_ipm();
+
+	LOG_ISR_ENTER(<intno>);		/*调用 ISR1 */
+	isr_1((intptr_t)(exinf_1));
+	LOG_ISR_LEAVE(intno);
+
+	if (i_sense_loc()) {		/* 返回ISR调用前状态 */
+		i_unlock_cpu();
+	}
+	i_set_ipm(saved_ipm);
+
+	LOG_ISR_ENTER(<intno>);		/* 调用ISR2 */
+	isr_2((intptr_t)(exinf_2));
+	LOG_ISR_LEAVE(intno);
+
+	if (i_sense_loc()) {		/*返回ISR调用前状态  */
+		i_unlock_cpu();
+	}
+	i_set_ipm(saved_ipm);
+
+	……
+
+	LOG_ISR_ENTER(<intno>);		/*调用 ISRn */
+	isr_n((intptr_t)(exinf_n));
+	LOG_ISR_LEAVE(intno);
+
+	i_end_int(intno);
+}
+
+这里调用ISRn后没有返回调用前状态是因为内核会随着中断处理函数的返回而返回
+原状态.
+
+对于只有一个中断服务例程的中断,生成如下函数.
+
+static void
+_kernel_inthdr_<intno>(void)
+{
+	i_begin_int(intno);
+	LOG_ISR_ENTER(intno);
+	isr_1((intptr_t)(exinf_1));
+	LOG_ISR_LEAVE(intno);
+	i_end_int(intno);
+}
+
+[课题]在这里,向LOG_ISR_ENTER,LOG_ISR_LEAVE的参数应该传递什么内容作为一
+个课题留下来. 因为用ATT_ISR注册的ISR,却没有分配相应的ISR ID,从而不能用
+ID区分ISR.虽说目前传递的是中断号,但或许传递扩展信息(exinf)应该更好.
+
+(5-2-2) 定义中断处理函数
+
+对于上述生成的中断处理函数,将进行与后述定义处理函数中所说明的通过系统配
+置文件中相应的中断处理函数定义静态API注册到系统中一样处理(如下所示),把
+该中断处理函数注册入系统.
+
+DEF_INH(inhno, { TA_NULL, _kernel_inthdr_<intno> });
+
+这里的inhno是intno对应的中断处理函数号.
+
+(5-2-3) 报错
+
+当满足以下中断服务例程相关的条件时,配置器将会报错.
+
+* 配置器第二阶段(pass2)检出错误
+# 中断服务例程属性不正确.isratr不为(TA_NULL)(E_RSATR)
+	$ 可以在目标依赖部分追加中断服务例程的属性(TARGET_ISRATR)
+# intno不正确(E_PAR)
+	$ 包括intno没有对应的inhno
+# 不满足(TMIN_ISRPRI <= isrpri && isrpri <= TMAX_ISRPRI)(E_PAR)
+# 对应于某个intno的inhno同时有DEF_INH(E_OBJ)
+# intno没有对应的CFG_INT(E_OBJ)
+# intno对应的CFG_INT中设定的中断优先级小于TMIN_INTPRI(E_OBJ)
+	$ 因为不支持内核管理以外的ISR
+
+* 必要时可让目标依赖部分检出的错误
+# isr不是正确的代码起始地址(E_PAR)
+
+(5-3) 中断处理函数(interrupt handler)的相关定义 
+
+对于静态API(DEF_INH)生成的中断处理函数,包括上述追加中断服务例程时由配置器
+生成的中断处理函数,生成如下相关定义.
+
+以下为系统配置文件包含下述静态API时,生成信息的说明.
+
+DEF_INH(inhno, { inhatr, inthdr });
+
+(5-3-1) 定义中断处理函数的数量
+
+通过宏定义(#define)定义中断处理函数的数量,并定义相应的变量.具体生成以下
+内容.
+
+#define TNUM_INHNO <经静态API包括经ATT_ISR间接生成的中断处理函数>
+const uint_t	_kernel_tnum_inhno = TNUM_INHNO;
+
+(5-3-2) 中断处理函数的出入口处理
+
+每个中断处理函数,都会生成其对应的出入口处理例程,如下.
+
+INTHDR_ENTRY(inhno, inhno_num, inthdr)
+
+这里的inhno_num是inhno(中断处理函数号)的具体数值,汇编语言会利用到该数值
+.
+
+(5-3-3) 中断处理函数初始化块的定义 
+
+生成的中断处理函数初始化块如下.
+
+const INHINIB _kernel_inhinib_table[TNUM_INHNO] = {
+	<中断处理函数1的初始化信息>,
+	<中断处理函数2的初始化信息>,
+				……
+	<中断处理函数TNUM_INHNO 的初始化信息>
+};
+
+各个中断处理函数的初始化信息具体形式如下.
+
+	{ (inhno), (inhatr), (FP)(INT_ENTRY(inhno, inthdr)) }
+
+(5-3-4) 报错
+
+当满足以下中断处理函数相关的条件时,配置器将会报错.
+
+* 配置器第二阶段(pass2)检出错误
+# inhno不正确(E_PAR)
+# inhno事先无定义(E_OBJ)
+## 与某个inhno对应的intno中断,同时也对应着一个ATT_ISR(E_OBJ)
+#	$ inhno没有对应的intno中断,则不会进行本检错
+#	→ 此检错在中断服务例程侧进行
+# 中断处理函数属性不正确.inhatr不为(TA_NULL)(E_RSATR)
+	$ 可以在目标依赖部分追加中断处理函数属性(TARGET_INHATR)
+    $ 使用TA_NONKERNEL时,应设置为TARGET_INHATR
+# 对于内核管理下的固定inhno,其对应的inhatr设定为TA_NONKERNEL(E_RSATR)
+# 对于内核管理外的固定inhno,其对应的inhatr没有设定为TA_NONKERNEL(E_RSATR)
+
+# 与某个inhno对应的intno中断没有对应的CFG_INT(E_OBJ)
+	$ inhno没有对应的intno时,不会进行本检错
+# inhatr不为TA_NONKERNEL时, inhno所对应intno中断,CFG_INT设定的中断优先
+级又小于TMIN_INTPR(E_OBJ)
+	$ inhno没有对应的intno时不会进行本检错
+# inhatr为TA_NONKERNEL时,inhno所对应intno中断, CFG_IN设定的中断优先级大
+于等于TMIN_INTPR(E_OBJ)
+	$ inhno没有对应的intno时不会进行本检错
+
+* 必要时可让目标依存部分检出的错误
+# inthdr不是正确地址(E_PAR)
+
+(6) CPU异常处理的相关定义 
+
+CPU异常处理因目标硬件的不同而有所区别.当没有设定CPU异常处理的定义依赖于
+目标硬件时,将会生成下述标准信息,反之不会生成相应的信息.
+
+在系统配置文件中如果包含了生成CPU异常处理函数的静态API(DEF_EXC)时,则会生
+成CPU异常处理函数的相关定义.
+
+以下为系统配置文件包含下述静态API时,生成信息的说明.
+
+DEF_EXC(excno, { excatr, exchdr });
+
+(6-1) 定义CPU异常处理函数的数量
+
+通过宏定义(#define)定义经静态API定义的CPU异常处理函数的数量,并定义相应
+的变量.具体生成以下内容.
+
+#define TNUM_EXCNO <CPU异常处理函数的数量>
+const uint_t	_kernel_tnum_excno = TNUM_EXCNO;
+
+(6-2) CPU异常处理函数的出入口处理 
+
+每个CPU异常处理函数都会生成其对应的出入口处理,如下.
+
+EXCHDR_ENTRY(excno, excno_num, exchdr)
+
+这里的excno_num是excno(CPU异常处理函数号)的具体数值,汇编语言会利用到该数
+值.
+
+(6-3) CPU异常处理函数初始化块的定义
+
+会生成CPU异常处理函数的初始化块,如下.
+
+const EXCINIB _kernel_excinib_table[TNUM_EXCNO] = {
+	< CPU异常处理函数1的初始化信息>,
+	< CPU异常处理函数2的初始化信息>,
+				……
+	< CPU异常处理函数TNUM_EXCNO的初始化信息>
+};
+
+其中各个CPU异常处理函数的初始化信息形式如下.
+
+	{ (excno), (excatr), (FP)(EXC_ENTRY(excno, exchdr)) }
+
+(6-4) 报错
+
+当满足以下CPU异常处理函数相关的条件时,配置器将会报错.
+
+* 配置器第二阶段(pass2)检出错误
+# excno不正确(E_PAR)
+# excno没有事先设定(E_OBJ)
+# CPU异常处理函数属性不正确.excatr不为(TA_NULL)(E_RSATR)
+	$ 可以在目标依赖部分追加CPU异常HANDLER属性(TARGET_EXCATR)
+
+* 必要时可让目标依赖部分检出的错误
+# exchdr不是正确的地址(E_PAR)
+
+(7) 非任务上下文堆栈空间的相关定义
+
+非任务上下文堆栈空间的相关定义是必须要生成的.
+
+(7-1) 没有DEF_ICS时
+
+系统配置文件不包含静态API(DEF_ICS)时,将生成如下内容.
+
+#ifdef DEFAULT_ISTK
+
+#define TOPPERS_ISTKSZ		DEFAULT_ISTKSZ
+#define TOPPERS_ISTK		DEFAULT_ISTK
+
+#else /* DEFAULT_ISTK */
+
+static STK_T				_kernel_istack[COUNT_STK_T(DEFAULT_ISTKSZ)];
+#define TOPPERS_ISTKSZ		ROUND_STK_T(DEFAULT_ISTKSZ)
+#define TOPPERS_ISTK		_kernel_istack
+
+#endif /* DEFAULT_ISTK */
+
+(7-2) 有DEF_ICS时
+
+以下为系统配置文件包含下述静态API的时候,生成信息的相关记述.
+
+DEF_ICS({ istksz, istk });
+
+istk为NULL时,为了确保必要的非任务上下文堆栈空间,会生成如下非任务上下文
+栈空间的初始化信息,如下
+
+static STK_T				_kernel_istack[COUNT_STK_T(istksz)];
+#define TOPPERS_ISTKSZ		ROUND_STK_T(istksz)
+#define TOPPERS_ISTK		_kernel_istack
+
+istk不为NULL时,生成如下非任务上下文堆栈空间的初始化信息.
+
+#define TOPPERS_ISTKSZ		(istksz)
+#define TOPPERS_ISTK		(istk)
+
+(7-3) 相关变量的生成
+
+无论系统配置文件中是否有DEF_ICS,都会生成如下定义．
+
+const SIZE		_kernel_istksz = TOPPERS_ISTKSZ;
+STK_T *const	_kernel_istk = TOPPERS_ISTK;
+
+#ifdef TOPPERS_ISTKPT
+STK_T *const	_kernel_istkpt = TOPPERS_ISTKPT(TOPPERS_ISTK, TOPPERS_ISTKSZ);
+#endif /* TOPPERS_ISTKPT */
+
+(7-4) 报错
+
+当满足以下非任务上下文堆栈空间相关的条件时,配置器将会报错
+
+* 配置器第二阶段(pass2)检出错误
+# 有多个静态API(DEF_ICS)(E_OBJ)
+# istksz的值不正确(不对齐)(E_PAR)
+	- 不是目标依赖部分值(CHECK_STKSZ_ALIGN)的倍数
+	$ 该检错仅在istk不为NULL时进行
+
+* 配置器第三阶段(pass3)中检出错误
+# istk不是正确的地址(E_PAR)
+	- 不是目标依赖部分值(CHECK_STACK_ALIGN)的倍数
+	- 为NULL(目标依赖部分,CHECK_STACK_NONNULL)
+
+* 必要时可让目标依赖部分检出的错误
+# istksz过小(E_PAR)
+
+(8) 时间事件管理的相关定义
+
+关于时间事件管理,生成如下定义
+
+TMEVTN	_kernel_tmevt_heap[TNUM_TSKID + TNUM_CYCID + TNUM_ALMID];
+
+(9) 各模块初始化函数的定义
+
+生成函数(_kernel_initialize_object),其作用为依次执行内核对象管理,中断管
+理,CPU异常处理函数管理等各种功能的初始化函数.除下面两个初始化函数以外,
+没有使用到的功能的初始化函数不会被执行.
+
+	_kernel_initialize_interrupt
+	_kernel_initialize_exception
+
+如果所有的功能都用到了的话,那么生成的函数如下.
+
+void
+_kernel_initialize_object(void)
+{
+	_kernel_initialize_task();
+	_kernel_initialize_semaphore();
+	_kernel_initialize_eventflag();
+	_kernel_initialize_dataqueue();
+	_kernel_initialize_pridataq();
+	_kernel_initialize_mailbox();
+	_kernel_initialize_mempfix();
+	_kernel_initialize_cyclic();
+	_kernel_initialize_alarm();
+	_kernel_initialize_interrupt();
+	_kernel_initialize_exception();
+}
+
+(10) 初始化例程的定义
+
+针对系统配置文件中的追加初始化例程静态API(ATT_INI)生成一个函数,用于依次
+执行所追加的初始化例程.比如.
+
+ATT_INI({ iniatr, exinf, inirtn });
+
+上述API中追加了如下初始化例程
+
+     (inirtn)((intptr_t)(exinf));
+
+则针对上述API会生成一个函数名为_kernel_call_inirtn的函数,用于调用
+(inirtn)((intptr_t)(exinf)); 另外,初始化例程的调用顺序与系统配置文件中
+的静态API的编写顺序一致.
+
+例如.
+
+ATT_INI({ TA_NULL, 0, timer_initialize });
+ATT_INI({ TA_NULL, CONSOLE_PORTID, serial_initialize });
+
+两个静态API对应的_kernel_call_inirtn函数实现如下.
+
+void
+_kernel_call_inirtn(void)
+{
+	(timer_initialize)((intptr_t)(0));
+	(serial_initialize)((intptr_t)(CONSOLE_PORTID));
+}
+
+(10-1) 报错
+
+当满足以下初始化例程相关的条件时,配置器将会报错
+
+* 配置器第二阶段(pass2)检出错误
+# 初始化例程属性错误.iniatr不为(TA_NULL)(E_RSATR)
+
+* 必要时可让目标依赖部分检出的错误
+# inirtn不是正确的地址(E_PAR)
+
+(11) 结束处理例程的函数的定义
+
+针对系统配置文件中的追加结束处理例程静态API(ATT_TER)生成一个函数,用于依
+次执行所追加的结束处理例程.比如.
+
+ATT_TER({ teratr, exinf, terrtn });
+
+上述API追加了如下结束处理例程.
+
+	(terrtn)((intptr_t)(exinf));
+
+则针对上述API会生成一个函数名为_kernel_call_terrtn的函数,用于调用
+(terrtn)((intptr_t)(exinf)); 另外,结束处理例程的调用顺序与系统配置文件中
+的静态API的编写顺序一致.
+
+比如,如下顺序的两个API.
+
+ATT_TER({ TA_NULL, 0, timer_terminate });
+ATT_TER({ TA_NULL, CONSOLE_PORTID, serial_terminate });
+
+生成的_kernel_call_terrtn函数如下.
+
+void
+_kernel_call_terrtn(void)
+{
+	(serial_terminate)((intptr_t)(CONSOLE_PORTID));
+	(timer_terminate)((intptr_t)(0));
+}
+
+(11-1) 报错
+
+当满足以下结束例程相关的条件时,配置器将会报错.
+
+* 配置器第二阶段(pass2)检出错误
+# 结束处理例程属性错误.teratr不为(TA_NULL)(E_RSATR)
+
+* 必要时可让目标依赖部分检出的错误
+# terrtn不是正确的地址(E_PAR)
+
+完
+

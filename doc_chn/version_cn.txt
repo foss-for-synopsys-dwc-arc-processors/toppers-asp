@@ -1,0 +1,851 @@
+	TOPPERS/ASP内核
+		版本履历
+	    对应版本: Release 1.7.0
+		最后更新: 2011年4月10日
+
+本文档为TOPPERS/ASP内核Release 1.0.0以后的版本履历.记述顺序为从新版本 到
+旧版本.由华中科技大学瑞萨高级嵌入式控制器实验室组织翻译制作,主要参与 人:
+任慰,王彦明,方华启,汪卓
+
+----------------------------------------------------------------------
+TOPPERS/ASP Kernel
+     Toyohashi Open Platform for Embedded Real-Time Systems/
+     Advanced Standard Profile Kernel
+
+ Copyright (C) 2005-2011 by Embedded and Real-Time Systems Laboratory
+             Graduate School of Information Science, Nagoya Univ., JAPAN
+ 
+对于以上著作权,用户只要符合以下的(1)－(4)条件,或者符合Free Software
+Foundation机构公布 的GNU General Public License第2版中记述的条件,著作权
+所有者将无偿同意本软件(含本软件修正品,以下同)的使用,复制,修改及再分发(
+以下统称为使用).
+
+(1).以源代码形式使用本软件时,须原封不动地把著作权申明,使用条件及以下的无
+	保障规定放入源代码中.
+
+(2).以程序库等能被其它软件调用的形式再分发时,须在再分发说明书(使用说明等
+	)中,写入 上述的著作权申明,使用条件及以下的无保障规定.
+
+(3).把本软件嵌入机器等,以不能被其它软件调用的形式使用本软件时,须满足以下
+	条件中的一条.
+	(a).再分发时使用书(使用说明等)中,须写入上述著作权申明,使用条件及以下
+	的无保障规定.
+	(b).以其它形式再分发本软件时,须向TOPPERS协会报告. 
+
+(4).因使用本软件而引起的直接或间接的损失,均不得向上述著作权所有者及
+	TOPPERS协会要求承担责任.
+
+本软件以无保障方式提供给社会.上述著作权所有者及TOPPERS协会对本软件及能
+否使用本软件的 探讨均不负任何责任.同时,对因使用上述软件而引起的直接或间
+接的损失,均不负任何责任.
+
+ $Id: version.txt 2061 2011-04-10 15:37:35Z ertl-hiro $
+---------------------------------------------------------------------
+
+		TOPPERS/ASP内核
+		Release 1.6.0 到 1.7.0 的变更点
+
+@ 变更点列表
+
+# 追加动态创建扩展包和限制性任务扩展包
+
+# 任务异常处理例程的执行开始条件的变更
+	- 修正任务异常处理例程的执行的相关代码
+	- 导入ipmflg．
+	- 废除exc_sense_unlock．
+
+# 数据队列的修正
+	- 导入数据管理块(与其他对象的实现整合在一起).
+
+# 变更SIL内存空间访问函数的指针传递方法
+	- 为了将函数的参数类型与函数的意思保持一致,将void *参数修改为相应的
+	  uint8_t *等.
+
+# 针对动态创建扩展包的修正
+	- 在t_stddef.h中添加数据类型MB_T的定义
+	- 将定义在配置器模板文件(pass2和pass3)中的目标依赖信息转移到头文件中.
+	- 在kernel_def.csv中添加相应定义的取值记述
+	- 修正移植手册.
+
+# 增加用配置器生成偏移文件的方法
+	- 增加genoffset.tf．
+	- 在kernel_def.csv中增加加SIL_ENDIAN_BIG/LITTLE．
+	- 修正sample/Makefile．
+	- 在m68k目标依赖部分实现本方法.
+	- 修正移植手册.
+
+# 其他bug修正
+	- 修正CHECK_INTPRI_CHGIPM定义中的typo.	
+	- 把genoffset降级为Release 1.6.0.
+	- 对于任务运行超时处理函数扩展功能,如果目标依赖部分不支持该扩展功能,
+	  则不在TCB中定义leftotm.
+
+# 其他修正
+	- 当定义宏USE_TSKINICTXB时,为了检查堆栈起始地址,导入GET_STK_TSKINICTXB.
+	- 修正kernel.tf,使得在kerenel_cfg.c中任务的起始地址强制转换为CAST.
+	- 修正ext_tsk中E_SYS的返回方式.ext_ker中对返回E_SYS的代码进行了修正.
+	- 为了使CFG_INT可以对应所有的有效中断号,修正配置器的报错条件.
+	- makedep中追加配置项-S.
+	- 所支持的最大串行端口数变更为4.
+
+# 文档补充和修正注释
+
+# 更新版本号
+	- 更新内核版本号.
+
+@ 目标依赖部分的重要修正处(1.6.0 -> 1.7.0)
+
+(1) 在目标依赖部分如果将calltex作为内联函数展开,则在调用call_texrtn的条
+件中追加<ipmflg为true>这一条件.
+
+(2) 确认中断出入口处理是否正确
+	- 确认在移植手册中追加的<设定中断优先级屏蔽为全解除状态(TIPM_ENAALL)
+	  ... (*h)>是否实现
+	- 确认移植手册6.6.1节的相关说明(追加标记(*g)(*i)等,并且使说明更详
+	  细).
+
+(3) 删除exc_sense_unlock的定义.
+
+(4) 将TARGET_TSKATR,TARGET_ISRATR,TARGET_INHATR,TARGET_INTATR,
+TARGET_EXCATR,TARGET_MIN_STKSZ,CHECK_STKSZ_ALIGN的定义从目标依赖部分的
+模板文件(pass2)转移到头文件中.
+
+(5) 将CHECK_FUNC_ALIGN,CHECK_FUNC_NONNULL,CHECK_STACK_ALIGN,
+CHECK_STACK_NONNULL,CHECK_MPF_ALIGN,CHECK_MPF_NONNUL的定义从目标依赖部
+分的 模板文件(pass3)转移到头文件中.
+
+(6) 动态创建功能扩展包的对应
+	- 追加CHECK_MB_ALIGN的定义.
+	- 追加TSZ_PDQMB的定义(在默认不合适的情况下).
+	- 追加VALID_INTNO_CREINT的定义.
+	- 追加动态内存管理的相关定义.
+
+(7) 用配置器生成偏移文件的方法的对应(虽然非必须,但还是先作好对应).详见移
+植手册2.5节.
+
+(8) 如果定义了USE_TSKINICTXB,并且定义了CHECK_STACK_ALIGN与
+CHECK_STACK_NONNULL任意一个,则定义模板文件函数GET_STK_TSKINICTXB用于从
+TINIB中提取堆栈的起始地址.
+
+
+----------------------------------------------------------------------
+
+		TOPPERS/ASP内核
+		Release 1.5.0 到 1.6.0 的变更点
+
+@ 变更点列表
+
+# 对应cfg的新版本(1.6)
+	- 将获取offsetof_TINIB_stksz和offsetof_TINIB_stk的相关记述移到目标
+	  非依赖部分中.
+
+# 辅助工具的修正
+	- 在genoffset中追加检查大小端指定的功能.并整理代码.
+
+# 其他修正
+	- 只要条件允许将TCB的priority成员定义uint_8型.
+	- 如果目标依赖部分中没有定义SIL_ENDIAN_BIG或SIL_ENDIAN_LITTLE,将在
+	  sil.h中报错.
+	- 修正系统日志功能中sysog_logmask和syslog_lowmask_not的初始值.
+	- 修正makerelase,对文件重复进行检测.
+	- 修正test_utm1的报错信息.
+
+# 文档的补充和修正注释
+
+# 更新版本号
+	- 更新内核版本号.
+
+@ 目标依赖部分的重要修正(1.5.0 -> 1.6.0)
+
+(1) makeoffset.c的修正
+	- 在makeoffset.c中追加函数sil_endian(这样,genoffset中的检测大小端指定的功能将有效)
+	- 在支持任务超时运行处理函数扩展包的情况下,确认TCB中是否包含leftotm
+	  成员.
+	- 确认生成的offset.h没有变化.
+
+(2) 取值符号表的目标依赖部分的修正.
+	- 从target_def.csv(或者其替代文件)中删除下面两行.
+		offsetof_TINIB_stksz,"offsetof(TINIB,stksz)"
+		offsetof_TINIB_stk,"offsetof(TINIB,stk)"
+	* 恢复到Release 1.5.0修正前的状态.
+
+(3) 确认target_fput_log的实现限制(并非是因为规范被修改)
+	- 确认target_fput_log在全中断禁止状态下能否正常被调用.
+
+----------------------------------------------------------------------
+
+		TOPPERS/ASP内核
+		Release 1.4.0 到 1.5.0 的变更点
+
+@ 变更点列表
+
+# 重新考虑内核管理外中断与CPU异常
+	- 整理和扩展内核管理外中断的设定方法.
+	- 内核管理外的中断处理函数不经过内核中的出入口处理(依赖于具体目标).
+	- 在CPU异常处理函数的出入口处理中增加对内核管理外CPU异常的处理.
+
+# 变更chg_ipm与get_ipm的规范
+	- 不能在CPU锁定状态下,调用chg_ipm和get_ipm.
+	- 修正与此相应的测试程序.
+
+# 变更系统时钟中断处理中所调用的ialm_tim的基准时间
+	- 在current_time更新后,进行时间事件处理.
+	- 引入最小有效系统时刻min_time.
+	- 废除pend_update.
+
+# 追加任务堆栈大小最小值的检错.
+	- 将堆栈大小为0这个错误交由目标非依赖部分检出.
+	- 在目标依赖部分中可以设定任务堆栈大小的最小值.
+
+# 追加任务初始化上下文块
+	- 如果目标硬件允许,可使用任务初始化上下文块(TSKINICTXB).
+
+# 变更目标依赖部分中所定义的符号重命名的方法
+	- 将由目标依赖部分定义并被目标非依赖部分参照的符号的重命名相关记述
+	  转移到目标依赖部分.
+
+# 追加扩展包
+	- 在一般公开文件中追加互斥功能扩展包,任务运行超时处理函数功能扩展包,
+	  任务优先级扩展包.
+	- 在移植手册中增加对应任务运行超时处理函数功能扩展包的相关说明.
+
+# 变更识别内核支持功能的宏定义的方法
+	- 如果在目标依赖部分中定义宏TOPPERS_TARGET_SUPPORT_XXXXX,则在
+	  kernel.h中定义宏TOPPERS_SUPPORT_XXXXX.
+
+# 修正系统日志功能
+	- 对应在syslog_initialize被调用前输出日志信息.
+	- 修正sysog_logmask与syslog_lowmask_not的初始值.
+
+# 测试库的修正
+	- 将test_lib.h与test_lib.c从test目录转移到include与library目录下.
+	- 追加函数syslog_flush,代替logtask_flush.
+	- 追加函数test_finish,用以代替测试程序中的ext_ker.
+	- 修正测试程序中与上述修改相关的部分.
+
+# 配置脚本configure的扩展
+	- 追加可指定Makefile模板的配置项.
+
+# 其他bug修正
+	- 修正kernel_impl.h中的宏定义名
+	- 修正kernel.tf中的语法错误.
+
+# 其他修正
+	- 将CTXB型的名称改为TSKCTXB.
+	- 如果ext_tsk从不应该返回的处理中返回,返回E_SYS.
+	- 完善在call_texrtn中调用dispatch的相关处理.
+	- 将make_non_wait从wait.c移动到wait.h.
+	- 删除xsns_xpn中冗余的条件表达式.
+	- 将TA_DISINT和TA_LEVEL从itron.h中删除.
+	- 删除LOG_TEX_LEAVE的第二个参数.
+	- 在sample的Makefile中追加OMIT_WARNING_ALL和OMIT_OPTIMIZATION.
+	- 追加与get_utm相关的test(1)(test_utm1).
+	- 完善test_dlynse.
+
+# 文档的补充和注释的修正
+	- 在用户手册中增加功能扩展和调整指南的相关记载.
+	- 在用户手册中增加队列操作库函数的相关记载.
+	- 在用户手册中增加系统启动时的初始化处理的相关记载.
+	- 扩充应用笔记.
+
+# 更新版本号
+	- 更新内核规范和内核的版本号.
+
+@ 目标依赖部分的重要修正处(1.4.0 -> 1.5.0)
+
+(1) 变更内核管理外的中断处理
+	- 变更关于内核管理外的中断处理函数的调用方法.确认是否按
+	  照<目标依赖部分的移植手册>的6.6.7节所述来实现.
+	- 如可以使用TA_NONKERNEL,在target.tf设定TARGET_INHATR为TA_NONKERNEL.
+	- 由于pass2模板文件的目标非依赖部分中追加对INTNO_FIX_KERNEL,
+	  INHNO_FIX_KERNEL,INTNO_FIX_NONKERNEL,INHNO_FIX_NONKERNEL,
+	  USE_INHINIB_TABLE,USE_INTINIB_TABLE的支持,进行相关修正使之能正常使用.
+	- 对于内核管理的中断处理函数的出入口处理,确认其是否按照<目标依赖部分
+	  移植手册>的6.6.1节所述来进行实现.
+
+(2) 变更内核管理外的CPU异常的处理
+	- 变更关于内核管理外的CPU异常处理函数的调用方法.按照<目标依赖部分的
+	  移植手册>6.7.1节,对实现进行修正.
+
+(3) 追加对目标依赖部分定义的符号的重命名
+	- 在目标依赖部分中,追加将目标依赖部分定义的,并在目标非依赖部分参照的
+	  符号进行重命名的相关记 述.在目标依赖部分和芯片依赖部分也应进行同样
+	  的变更,但是对于由arch/logtrace/trace_config.c定义的符号仍然由目标
+	  依赖部分重命名.
+
+(4) 变更目标依赖部分所支持功能的宏定义
+	- 将目标依赖部分中定义的
+	  TOPPERS_SUPPORT_DIS_INT,TOPPERS_SUPPORT_ENA_INT,TOPPERS_SUPPORT_GET_UTM
+	  改为TOPPERS_TARGET_SUPPORT_DIS_INT,TOPPERS_TARGET_SUPPORT_ENA_INT,
+	  TOPPERS_TARGET_SUPPORT_GET_UTM.
+
+(5) 变更任务上下文块类型名
+	- CTXB改为TSKCTXB.
+
+(6) 修正取值符号表的目标依赖部分
+	- 在target_def.csv(或者其替代文件)中添加如下两行.
+		offsetof_TINIB_stksz,"offsetof(TINIB,stksz)"
+		offsetof_TINIB_stk,"offsetof(TINIB,stk)"
+	* 如果使用新增的USE_TSKINICTXB本修正无意义.
+	* 如果使用Release 1.6以后的版本,本修正无意义.
+
+(7) 修正日志宏
+	- 由于删除LOG_TEX_LEAVE的第二个参数,在存在LOG_TEX_LEAVE定义的地方
+	  ,修正相关定义.
+
+(8) 修正启动模块(只针对省略bss段清零的情况)
+	- 如果使用系统日志功能,则在启动模块中追加代码将syslog_logmask和
+	  syslog_lowmask_not初始化为0.
+	- 如果嵌入追踪日志的示例代码,则启动模块中追加代码将trace_mode初始化
+	  为0.
+
+(9) 设定检查任务堆栈大小的最小值(可选)
+	- 依赖于目标,如果需要检查任务堆栈大小的最小值,则将该最小值定义为
+	  TARGET_MIN_STKSZ.
+
+(10) 对应任务运行超时处理函数功能扩展(配置项)
+	- 对应任务运行超时处理函数的功能扩展,对应方法请参照<目标依赖部分移植
+	  手册>中提到<#ifdef TOPPERS_SUPPORT_OVRHDR>的地方以及5.7节和6.14节.
+
+----------------------------------------------------------------------
+
+		TOPPERS/ASP内核
+		Release 1.3.2 到 1.4.0 的变更点
+
+@ 变更点列表
+
+# 变更周期定时器(cycilc handler)规范
+	- 当调用sta_cyc后,首次执行周期定时器的时刻从1个周期之后变更为1个相位
+	  之后.
+
+# 删除TSZ_MPF的定义
+
+# 废除call_atexit
+	- 目标非依赖部分不再调用call_atexit.对于call_atexit所需进行的处理(
+	  标准是调用software_term_hook)放在target_exit的头部中进行.
+
+# 修正get_utm
+	- 修正在周期定时器和单次定时器中调用get_utm后不能返回正确的时间的问
+	  题.
+
+# 提高调度器的模块化程度
+	- 任务状态(tstat)的变更不再由make_runnable进行而是由make_runnable的
+	  调用侧进行.
+
+# 自动获得模板变量值
+	- 修正后,可以从头文件的定义中自动获得模板变量
+	  OMIT_INITIALIZE_INTERRUPT与OMIT_INITIALIZE_EXCEPTION的值.
+
+# 完善追踪日志功能
+	- 在LOG_TEX_ENTER,LOG_TEX_LEAVE中追加参数p_runtsk.
+
+# 修正运行时间直方图统计模块
+	- 时刻的获取可以在目标依赖部分中实现.
+	- 将TNUM_HIST的定义从histgram.h转移到histgram.c.
+
+# 分离配置器
+	- 将配置器(cfg)独立于ASP内核发布.
+
+# 分离迁移手册
+	- 将doc/migration.txt另外单独以PDF文件的形式发布.
+
+# 追加测试程序和性能评价程序.
+	- 追加信号量功能test(2)(test_sem2).
+	- 追加act_tsk,iact_tsk处理时间的评价程序(perf4).
+
+# clean时删除的文件
+	- 为了使目标依赖部分能够定义clean时删除的文件,引入变量(CLEAN_FILES).
+
+# 修正辅助工具
+	- 将makerelease使用的目录名(asp)修正为由根据当前目录决定.
+	- 在makedep中,追加在Cygwin环境下指定根目录的配置项-R,并在Makefile中
+	  追加MAKEDEP_OPTS变量.
+	- 为使gentest能够对应单次定时器的多次启动,将其进行扩展.
+
+# 修正其他bug
+	- 修正重命名符号.
+	- 修正使得中断服务例程,初始化例程,结束处理例程的起始地址不会函数名时
+	  也能够执行.
+	- 修正没有Makefile.depend时的一些问题.
+
+# 补充文档及修正注释
+	- 在各文档中追加TOPPERS版权信息和目录.
+
+# 更新版本号
+	- 更新内核规范以及内核的版本号.
+
+@ 目标依赖部分的重要修正处(1.3.2 -> 1.4.0)
+
+(1) 废除call_atexit
+	- 由于废除call_atexit,所以从目标依赖部分删除其相关定义.对于
+	  call_atexit所需进行的处理( 标准是调用software_term_hook)放在
+	  target_exit的头部中进行.
+
+(2) 删除模板变量值的设定.
+	- 由于已经可以从头文件中自动获取模板变量OMIT_INITIALIZE_INTERRUPT和
+	  OMIT_INITIALIZE_EXCEPTION的值,所以删除目标依赖部分(target.tf及其
+	  所包含的文件)中对上述两变量的设定.
+
+(3) 追加调用makedep时的配置项
+	- 在Makefile的目标依赖部分(Makefile.target等)中针对调用makedep的情况
+	  ,追加相应配置项$(MAKEDEP_OPTS).
+
+	例) @$(PERL) $(SRCDIR)/utils/makedep -C $(CC) $(MAKEDEP_OPTS) \
+			-O "$(CFLAGS) $(KERNEL_CFLAGS)" $< >> Makefile.depend
+
+(4) 在简易发布包中追加配置器
+	- 由于配置器已从目标非依赖部分分离出来,在E_PACKAGE中追加将cfg包含进
+	  来的相关记述.
+
+	例) INCLUDE ../../cfg/MANIFEST
+
+----------------------------------------------------------------------
+
+		TOPPERS/ASP内核
+		Release 1.3.1 到 1.3.2 的变更点
+
+@ 变更点列表
+
+# 将TMAX_RELTIM修正为可由用户可参照.
+	- 将TMAX_RELTIM的定义从kernel/time_event.h转移到include/t_stddef.h.
+
+# 追加const修饰符
+	- 对syslog_printf,syslog_print,syslog_wri_log和serial_wri_dat的参数
+	  追加const修饰符.
+
+# 引入TMIN_ISRPRI和TMAX_ISRPRI
+
+# 运行时间直方统计模块中对时间颠倒的处理
+	- 修正后,运行时间直方统计模块可以统计时间颠倒的次数.
+
+# 修正系统日志任务结束处理
+	- 修正后,如果日志缓冲区还有残余信息,则输出一个字符串以指示缓冲区还有
+	  残余信息.
+
+# 修正配置器
+	- 修正后,顺序表的成员可以是表达式.
+	- 修正如静态API中存在强制类型转换无法传递参数的bug.
+	- 修正使用#pragma once后行号发生错位的bug.
+	- 修正未指定cfg文件时的报错信息.
+
+# 配置器生成的文件
+	- 对于配置器需生成kernel_cfg.c以外的文件时,导入相应的变量
+	  (CFG_OBJS,CFG2_OUT).
+
+# realclean时被删除的文件
+	- 为使能在目标依赖部分定义realclean时删除的文件,导入变量(REALCLEAN_FILES).
+
+# 测试程序的追加和补充
+	- 追加信号量功能的test(1).
+	- 在内核的整合性检查中追加对信号量的逐一检查.
+
+# 修正bug
+	- 预留非任务上下文堆栈栈时堆栈大小的错误.
+	- kernel.tf中错误信息的错误.
+	- 运行时间直方图统计模板中最大值使用的bug.
+	= 当Makefile中APPLDIR中定义多个目录时的bug.
+	- test/perf.c中,测量回数修正为10000.
+	- DVE68K目标依赖部分的target.tf中错误信息的错误.
+
+# 文档补充及修正注释
+	- 在各文档中追加TOPPERS版权信息和目录.
+
+# 更新版本号
+
+@ 目标依赖部分的重要修正处(1.3.1 -> 1.3.2)
+
+无
+
+----------------------------------------------------------------------
+
+		TOPPERS/ASP内核
+		Release 1.3.0 到 1.3.1 的变更点
+
+@ 变更点列表
+
+# 追加堆栈大小大小检查
+	- CRE_TSK的stk(任务堆栈的起始地址)不为NULL时,如果stksz不是合适的值(
+	  目标依赖部分所定义对齐单元的倍数),且未做相应的对齐处理,报错.
+	- 追加在DEF_ICS的istk(非任务上下文用堆栈的起始地址)不为NULL时对
+	  istksz的检查(是否为目标依赖部分值的倍数).
+
+# 追加废除任务嵌套挂起(suspend)后相关修正
+	- 将TMAX_SUSCNT的定义从kernel.h移到itron.h.
+	- 从任务参照信息(T_RSTK)中删除成员suscnt
+
+# 修正kernel_api.csv
+	- 将各对象的属性的参数的类型修正为无符号类型.
+# 修正kernel_def.csv
+	- 在有符号的符号定义中追加",signed".
+# 修正itron.h
+	- 修正frsm_tsk的打字错误
+
+# 修正配置器
+	- 追加配置器内嵌函数DUMP, TRACE, NOOP.
+	- 修正$FOREACH$,$IF$等没有内容时则作为internal error报错的缺陷(修正错误信息).
+	- 修正用$INCLUDE$命令包含tf文件后,tf的行号错位的bug.
+	- 修正在没有定义64位整数时CSV文件中标记s的记录不被作为有符号数处
+	  理的缺陷.
+	- 修正强制类型转换参数的传递处理的相关缺陷.
+	- 对同一tskid对应复数个DEF_TEX进行检错.
+	- 解决使用DEF_TEX后TSK.TSKID[tskid]变为0的缺陷.
+	- 修正用DEF_INH,CFG_INT,DEF_EXC重复注册同一个对象号时对其进行二重检错的问题.//??
+
+# 修正发布文件
+	- 删除doc/api_spec.txt, ngki_spec.txt和sysstat.txt
+	- 删除extension directory
+
+# 文档修正及修正注释
+
+# 更新版本号
+
+@ 目标依赖部分的重要修正处(1.3.0 -> 1.3.1)
+
+(1) 堆栈大小检查的相关修正处
+	- 在target.tf包含kernel.tf之前必须将CHECK_STKSZ_ALIGN设为某个值,堆栈
+	  空间大小必须为该值的倍数.
+	 
+    例)$CHECK_STKSZ_ALIGN = 4$
+
+(2) 关于目标依赖部分的用户手册
+	- 规定目标依赖部分用户手册的文件名及其应记述的内容.详见<目标依赖部
+	  分移植手册>的<9.1 文档>.
+
+----------------------------------------------------------------------
+
+		TOPPERS/ASP内核
+		Release 1.2.1 到 1.3.0 的变更点
+
+@ 变更点列表
+
+# 废除set_tim(设定系统时间)
+
+# 变更属性
+	- 废除TA_DISINT,重新启用TA_ENAINT.
+
+# 变更判断扩展功能和目标定义功能有无的相关宏定义
+	- TOPPERS_EXTENSION_MUTEX变为TOPPERS_SUPPORT_MUTEX.
+	- TOPPERS_EXTENSION_PRI_LEVEL变为TOPPERS_SUPPORT_PRI_LEVEL.
+	- SUPPORT_???_???变为TOPPERS_SUPPORT_???_???,将目标依赖部分的定义转
+	  移target_kernel.h中.
+
+# 变更类型名,变量名和常量名
+	- SYSUTIM -> SYSUTM,sysutim -> sysutm,p_sysutim -> p_sysutm
+	- SIO_ERDY_SND -> SIO_RDY_SND,SIO_ERDY_RCV -> SIO_RDY_RCV
+	- sio_ierdy_snd -> sio_irdy_snd,sio_ierdy_rcv -> sio_irdy_rcv
+
+# 变更cfg1_out.c的编译/链接方法
+	- 为使cfg1_out.c能包含target_cfg1_out.h,变更配置器.
+	- 为目标依赖部分准备头文件target_cfg1_out.h.
+	- 变更后,cfg1_out.c的链接方法与内核一样.
+
+# 修正配置器
+	- 变更cfg1_out.c中生成内容(与上述修正或变更相关).
+	- 对应boost 1.35.0.
+
+# 修正sample程序
+	- 导入任务中固定循环次数的功能TASK_LOOP.
+
+# 修正bug
+	- 固定长内存池内存空间的预留方法.
+	- 对于产生错误的DEF_TEX,显示其所在行的行号.
+
+# 变更术语
+	-<中断禁止>-><全中断禁止>
+
+# 修正文档
+
+# 更新版本号
+
+@ 目标依赖部分的重要修正处(1.2.1 -> 1.3.0)
+
+(1) 对应废除TA_DISINT和重新启用TA_ENAINT的相关修正处
+	- 将是否使用TA_DISINT的判定变为判定是否使用TA_ENAINT.
+		例)((intatr & TA_DISINT) == 0U) -> ((intatr & TA_ENAINT) != 0U)
+	- 如果CFG_INT的中断属性中有TA_DISINT项(初始状态为中断禁止),则删除该项.
+		例)CFG_INT(INTNO_SIO, { TA_DISINT | INTATR_SIO, INTPRI_SIO });
+		-> CFG_INT(INTNO_SIO, { INTATR_SIO, INTPRI_SIO });
+	- 如果CFG_INT的中断属性不需设定为为TA_DISINT(初始状态为中断使能),则
+	  追加TA_ENAINT.
+		
+		例)CFG_INT(INTNO_TIMER, { INTATR_TIMER, INTPRI_TIMER });
+		-> CFG_INT(INTNO_TIMER, { TA_ENAINT | INTATR_TIMER, INTPRI_TIMER });
+
+(2) 变更扩展功能和目标定义功能有无判别宏定义的相关修正处
+	- SUPPORT_???_???变为TOPPERS_SUPPORT_???_???,将目标依赖部分的定义转
+	  移到target_kernel.h中.
+		TOPPERS_SUPPORT_DIS_INT			支持dis_int
+		TOPPERS_SUPPORT_ENA_INT			支持ena_int
+		TOPPERS_SUPPORT_GET_UTM			支持get_utm
+   - 如果makeoffset.c参照了TOPPERS_EXTENSION_MUTEX则将其改为
+     TOPPERS_SUPPORT_MUTEX.
+
+(3) 变更类型名,变量名,常量名的相关修正处
+	- SYSUTIM -> SYSUTM,sysutim -> sysutm,p_sysutim -> p_sysutm
+	- SIO_ERDY_SND -> SIO_RDY_SND,SIO_ERDY_RCV -> SIO_RDY_RCV
+	- sio_ierdy_snd -> sio_irdy_snd,sio_ierdy_rcv -> sio_irdy_rcv
+	! 检索sysutim和erdy时最好不区分大小写
+
+(4) 变更cfg1_out.c的编译/链接方法的相关修正处
+	- 目标依赖部分增加头文件target_cfg1_out.h.详见<目标依赖部分移植手册
+	  >7.4节
+	- 在MANIFEST中追加新增加的文件.
+
+(5) 关于编译器警告消息的考虑
+	- 正在考虑是否在Makefile.target中追加<COPTS := $(COPTS) -Werror>.
+	  出现由内核严格别名规则(strict-aliasing)引起的警告信息时,可追加
+	  <KERNEL_CFLAGS := $(KERNEL_CFLAGS) -fno-strict-aliasing>
+
+(6) 修正注释
+	-<中断禁止>-><全中禁止>
+
+----------------------------------------------------------------------
+
+		TOPPERS/ASP内核
+		Release 1.2.0 到 1.2.1 的变更点
+
+@ 变更点列表
+
+# 变更追踪日志记录的示例代码的嵌入方法
+	- configure中追加配置项-r.
+	- 修正sample/Makefile
+
+# 变更Makefile的配置器关联部分
+	- 将配置器的目标依赖的配置项变更到Makefile的目标依赖部分中记述.
+	- 将配置器各阶段(pass)中目标依赖部分的文件的依赖关系的定义变更到
+	  Makefile的目标依赖部分中.
+
+# 更新版本号
+
+@ 目标依赖部分的重要修正处(1.1.0 -> 1.2.1)
+
+(1) 对应新配置器
+
+# 如果在target.tf中重复定义了头文件中所定义常量,在target_def.cvs中用变量
+  记述该常量并删除target.tf中重复的定义.
+
+# 在配置器的配置项中追加读取target_def.cvs的配置项.详见<目标依
+  赖部分移植手册>2.4节的(2-4-15).
+
+# 准备target_check.tf,详见<目标依赖部分移植手册>7.3节.
+
+# 定义配置器各阶段的目标依赖部分文件的依赖关系,详见<目标依赖部分移植手册
+  >2.7节.
+
+(2) 变更和追加数据类型和常量的
+
+# BOOL变更为bool_t,TRUE和FALSE变更为true和false,但是需要注意的是ER_BOOL
+  等类型没有变更.注释中也需做对应的修正.
+
+# char变为char_t.但是对于参数为字符串常量的地方,为避免编译器警告,仍使用char *.
+  在目标依赖部分必须变更的地方有两处如下.
+
+	- target_fput_log的参数
+	- sio_snd_chr的第二个参数
+
+# target_stddef.h(或者其所包含的文件)中追加针对指定位数的浮点数
+  (float32_t和double64_t)的最大值和最小值的宏定义,详见<目标依赖
+  部分移植手册>3.4节.如果开发环境为GCC,并且使用
+  arch/gcc/tool_stddef.h,如果需要float型和double型为是IEEE754标准
+  的单精度浮点数和双精度浮点数话,在包含arch/gcc/tool_stddef.h之前,
+  定义宏TOPPERS_STDFLOAT_TYPE1.
+
+(3) 嵌入追踪日志记录的示例代码(可选)
+
+# 修正目标依赖部分,使得可以正常使用追踪日志记录的示例代码,详见<目标依赖
+  部分移植手册>6.11.2节.
+
+(4) 使用TARGETDIR变量
+
+# 对于Makefile目标依赖部分中参照目标依赖部分目录的地方
+ ,将$(SRCDIR)/target/$(TARGET)变更为$(TARGETDIR).
+
+----------------------------------------------------------------------
+
+		TOPPERS/ASP内核
+		Release 1.1.0 到 1.2.0 变更点
+
+@ 变更点列表
+
+# 更新配置器
+	- PASS1和PASS3追加目标依赖功能.
+	- 对应FMP内核的class记述.
+	- 追加文件(目标非依赖部分,排除cfg目录)
+		kernel/kernel_api.csv, kernel_def.csTASK_LOOPv, kernel_check.tf
+	- 追加文件(目标依赖部分)
+		target_def.csv, target_check.tf
+	- 对应新的配置器,修正sample/Makefile.
+	- 对于互斥功能扩展不需构建配置器.
+
+# 变更与追加数据类型和常量
+	- BOOL型变更为bool_t型.
+		BOOL -> bool_t,TRUE -> true,FALSE -> false
+		原先的定义追加到itron.h中.
+	- char型变更为char_t型.但是对于参数为字符串常量的地方,为避免编译器警
+	  告,仍使用char *
+	- 追加float32_t, double64_t类型.
+
+# 追加和修正测试程序
+	- 整理系统配置文件所包含的配置文件(按照自下而上的顺序).
+	- 制作测试程序的生成脚本(utils/gentest).
+	- 对应互斥功能测试程序的生成脚本.
+	- 在互斥功能扩展中追加test_mutex7.
+
+# 整理系统服务头文件中的#include
+	- syssvc下的头文件被包含时,其对应的包含语句为#include "syssvc/??????.h"
+     (被??????.c包含时除外).
+	- 从Makefile中删除-I$(SRCDIR)/syssvc.
+
+# 独立内核启动消息的输出(banner)功能
+	- 准备syssvc/banner.cfg, banner.h.
+	- 删除syslog.cfg中的相关记述.
+
+# 变更t_syslog.h与syslog.h的作用
+	- t_syslog.h将作为系统日志输出用专用头文件,系统日志操作功能相关定义
+	  转移移到syslog.h中.
+
+# 变更串口驱动的flush方法
+	- 废除串口的强制flush功能,新设未发送信息的取出功能,使用该功能的串口
+	  信息flush处理放在结束处理例程中进行.
+
+# 变更是否需要进行调度的判定方法
+	- 对于所有可能修改任务状态的函数,其返回值为是否需要进行调度的标志.原
+	  先通过比较较p_runtsk和p_schedtsk来判定是否需要调度的方法尽可能不再
+	  使用.
+# 规定追踪日志记录示例代码的使用方法
+	- 在移植手册的6.11.2中规定使用追踪日志记录示例代码时目标依赖部分所应
+	  作的修改.
+	- 按照上述规定修正DVE68K的目标依赖部分
+
+# TARGETDIR的导入
+	- 在sample/Makefile中定义指示目标依赖部分路径的变量TARGETDIR.
+	- 由于变量的导入修正目标依赖部分的相关部分.
+
+# 修正其他bug
+	- kernel_rename.def：log_???_entry -> log_???_enter
+
+# 其他修正
+	- T_RLOG -> T_SYSLOG_RLOG
+	- syssvc下的头文件中所有函数定义附加throw().
+	- makerelease:如没有RELEASE目录,则生成RELEASE目录.
+
+# 补充文档.追加和修正注释.
+	- 准备doc/migration.txt(尚未完成).
+
+# 更新版本号
+
+@ 目标依赖部分的重要修正处(1.1.0 -> 1.2.0)
+
+(1) 针对新配置器的修正或变更
+
+# 如果在target.tf中定义和头文件重复的常量,则在target_def.cvs中用变量记述
+  该定义并删除该target.tf中的重复的定义.
+
+# 准备target_check.tf,详见<目标依赖部分移植手册>7.3节.
+
+(2) 变更和追加数据类型和常量
+
+# BOOL变为bool_t,TRUE和FALSE变为true和false,当然注释中也作对应的修正.
+  但是需要注意的是ER_BOOL等符号没有作对应的改变.
+
+# char变为char_t.但是对于指向字符串的参数为避免编译器报错,仍使用char *.在目标依赖部分必须变
+  更的地方有两处如下
+
+	- target_fput_log的参数
+	- sio_snd_chr的第二个参数
+
+# target_stddef.h(或者被其包含的文件)中追加针对指定位数的浮点数(float32_t和double64_t)的最
+  大值和最小值的宏定义.详见<目标依赖部分移植手册>3.4
+　节.如果开发环境为GCC,并且使用arch/gcc/tool_stddef.h,float型和
+　double型均符合IEEE754标准的话,在包含arch/gcc/tool_stddef.h之前,宏定义
+　TOPPERS_STDFLOAT_TYPE1即可.
+
+(3) 对应追踪日志记录示例代码的使用方法的修正(可选)
+
+# 修正目标依赖部分,使得可以使用追踪日志记录的示例代码,详见<目标依赖
+  部分移植手册>6.11.2节. 
+
+(4) 使用TARGETDIR变量
+
+# 对于Makefile目标依赖部分中参照目标依赖部分目录的地方
+ ,将$(SRCDIR)/target/$(TARGET)变更为$(TARGETDIR).
+
+----------------------------------------------------------------------
+
+		TOPPERS/ASP内核
+		Release 1.0.0 到 1.1.0 的变更点
+
+@ 变更点列表
+
+# 删除内核中的frsm_tsk,但itron.h中仍保留其宏定义
+
+# 完善内核追踪日志功能
+	- 在使用追踪日志的文件中追加默认定义.
+	- 废除nulltrace.修正logtrace.
+	- 标准化目标依赖部分中追踪日志的获取方法.
+	- 追加INTHDR_ENTRY和EXCHDR_ENTRY的参数.
+	- 将target_putc重命名为target_fput_log.
+
+# 将系统日志功能作为系统服务独立于内核之外
+	- 将syslog.c,syslog.h,banner.c从kernel移到syssvc中.
+	- 在系统日志功能的服务调用的名称上追加syslog_.
+
+# 明确系统服务的路径
+	- 将logtask.h和serial.h从include移到syssvc.
+	- 将vasyslog.c从library移到syssvc.
+
+# 发布包的整备
+	- 制作utils/makerelease.删除utils/genmanifest.
+	- 在MANIFEST文件中记述发布包名和版本号.
+	- 变更MANIFEST文件中的INCLUDE语句.
+
+# 变更出入口处理的地址的变量/成员名
+	- 中断处理函数/CPU异常处理函数的出入口处理的地址(FP型)的变量名/成员名
+	  变更为int_entry／exc_entry.同时修正注释.
+
+# 修正DVE68K/M68K目标依赖部分
+	- 修正target.tf中的错误消息.
+	- 为能使用logtrace进行相关修正.
+
+# 其他修正.
+	- 修正生成固定长内存池初始化块的相关bug.
+	- configure中对是否已生成配置器cfg的检测更加严格.
+	- 在sample/Makefile,修正关于库函数的依赖记述.
+	- 在sample/sample1.cfg,变更系统服务的定义顺序.
+	- 在extension/MANIFEST中,追加MANIFEST.
+
+# 补充文档.追加和修正注释.
+
+# 更新版本号.
+
+@ 目标依赖部分的重要修正处(1.0.0 -> 1.1.0)
+
+# 实现内核的追踪日志功能中必须由目标依赖部分实现的部分.详见porting.txt
+  的6.1.2节,6.5.2节,6.6.1节,6.7.1节.
+
+# 对应INTHDR_ENTRY和EXCHDR_ENTRY中追加第二个参数.
+
+# 将TARGET_NAME和COPYRIGHT_TARGET从target_config.h转移到target_syssvc.h.
+  COPYRIGHT_TARGET重命名为TARGET_COPYRIGHT.
+
+# 将target_putc重命名为target_fput_log,并将该函数的声明从target_config.h
+  移到target_syssvc.h,函数实现可以放在target_config.c中,并修正函数声明和实
+  现中的注释.
+
+# 中断处理函数出入口处理的地址(FP型)的变量/成员名由inthdr变更为
+  int_entry.CPU异常处理函数的出入口处理的地址(FP型)的变量/成员
+  名由exchdr变更为exc_entry.并修正与此相关的x_define_inh和
+  x_define_exc的注释.
+
+# 如果没有记录追踪日志则从target_config.h中删除<#include
+  "nulltrace/trace_config.h">.
+
+# 如果记录追踪日志的话则在target_syssvc.h中追加<#include
+  "logtrace/trace_config.h">.并将target_config.h
+  中的<#include "logtrace/trace_config.h">其移到前方.
+
+# 准备/修正MANIFEST和E_PACKAGE.在MANIFEST中追加PACKAGE原语和VERSION原语.
+  并将INCLUDE原语的参数从目录名变更为文件名.对于各种目标系统需准备
+  E_PACKAGE.详见user.txt的第2章和porting.txt的9.1节.
+
+----------------------------------------------------------------------

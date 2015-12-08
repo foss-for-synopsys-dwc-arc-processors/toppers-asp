@@ -1,0 +1,1917 @@
+﻿
+			TOPPERS/ASP 内核 用户手册 
+
+
+对应版本: Release 1.7.0 最终更新: 2011年5月28日 
+
+
+本文档为关于使用TOPPERS/ASP内核的必要事项的说明文档,由华中科技大学瑞萨高
+级嵌入式控制器实验室组织翻译制作,主要参与人:任慰,王彦明,方华启,汪卓
+
+--------------------------------------------------------------------------------
+
+许可协议
+
+TOPPERS/ASP Kernel
+     Toyohashi Open Platform for Embedded Real-Time Systems/
+     Advanced Standard Profile Kernel
+
+ Copyright (C) 2005-2011 by Embedded and Real-Time Systems Laboratory
+             Graduate School of Information Science, Nagoya Univ., JAPAN
+ 
+对于以上著作权,用户只要符合以下的(1)－(4)条件,或者符合Free Software
+Foundation机构公布的GNU General Public License第2版中记述的条件,著作权
+所有者将无偿同意本软件(含本软件修正品,以下同)的使用,复制,修改及再分发(
+以下统称为使用).
+
+(1).以源代码形式使用本软件时,须原封不动地把著作权申明,使用条件及以下的无
+	保障规定放入源代码中.
+
+(2).以程序库等能被其它软件调用的形式再分发时,须在再分发说明书(使用说明等
+	)中,写入上述的著作权申明,使用条件及以下的无保障规定.
+
+(3).把本软件嵌入机器等,以不能被其它软件调用的形式使用本软件时,须满足以下
+	条件中的一条.
+	(a).再分发时使用书(使用说明等)中,须写入上述著作权申明,使用条件及以下
+	的无保障规定.
+	(b).以其它形式再分发本软件时,须向TOPPERS协会报告. 
+
+(4).因使用本软件而引起的直接或间接的损失,均不得向上述著作权所有者及
+	TOPPERS协会要求承担责任.
+
+本软件以无保障方式提供给社会.上述著作权所有者及TOPPERS协会对本软件及能
+否使用本软件的探讨均不负任何责任.同时,对因使用上述软件而引起的直接或间
+接的损失,均不负任何责任.
+--------------------------------------------------------------------------------
+ 
+目录
+1. TOPPERS/ASP内核概要
+	1.1. TOPPERS/ASP内核的定位
+	1.2. TOPPERS/ASP内核的标准
+	1.3. 迁移指南
+	1.4. 功能扩展与调整
+	1.5. 已知的问题
+2. 目标依赖部分
+	2.1. 目标依赖部分概要
+	2.2. 简易发布包
+	2.3. 个别发布包
+3. 快速使用指南
+	3.1. 开发环境的准备
+	3.2. 配置器的构建
+	3.3. sample程序的构建和运行
+	3.4. 将内核以函数为单位封装为静态库的方法
+	3.5. 分别构建应用和内核的方法
+4. 目录与文件构成
+	4.1. 发布包的目录构成
+	4.2. 目标非依赖部分的文件组成
+5. 配置脚本的使用方法
+6. Makefile的修正方法
+        6.1. Makefile的变量定义
+        6.2. 编译选项
+7. 配置器的使用
+8. 系统服务
+	8.1. 系统日志功能
+		8.1.1. 系统日志功能的定位
+		8.1.2. 写日志缓冲区以及底层输出
+		8.1.3. 日志信息的类别
+		8.1.4. 日志信息的重要度
+		8.1.5. 日志信息的构造
+		8.1.6. 系统日志功能的服务调用(service call)
+		8.1.7. 系统日志功能的库函数和宏定义
+		8.1.8. 系统日志功能的其他服务
+	8.2. 串行通信接口驱动
+		8.2.1. 串行通信接口驱动的服务调用
+		8.2.2. 串行通信接口驱动的其他服务
+	8.3. 系统日志任务
+		8.3.1. 系统日志任务的服务调用
+		8.3.2. 系统日志任务的其他服务
+	8.4. 内核起动消息的输出
+9. 系统支持库
+	9.1. 基本的库函数
+	9.2. 队列操作的库函数
+	9.3. 用于输出系统日志的库函数
+	9.4. 运行时间直方图模块
+10. 功能测试与性能评价(test program)
+	10.1. 功能测试库
+	10.2. 内核整合性检查
+	10.3. 功能测试
+	10.4. 性能评价
+11. 使用上的注意与提示
+	11.1. 系统时钟驱动的嵌入
+	11.2. assert宏的处理
+	11.3. 内核对象(object)ID管理
+	11.4. 内核内部符号的重命名
+	11.5. 追踪日志记录的示例代码的使用说明
+	11.6. 系统起动时的初始化处理
+12. 参考信息
+	12.1. 使用条件和使用报告
+	12.2. 承诺.适用性.支持
+	12.3. 漏洞提交
+	12.4. 网址
+	12.5. TOPPERS用户邮件列表
+	12.6. TOPPERS工程面向会员的支持
+	12.7. 加入TOPPERS工程
+13. 附录
+	13.1. 服务调用一览
+	13.2. 静态API一览
+	13.3. 版本列表
+
+
+1. TOPPERS/ASP内核概要
+
+1.1. TOPPERS/ASP内核的定位
+
+TOPPERS/ASP内核(以下,简称ASP内核)作为TOPPERS新世代内核的基石,是由
+TOPPERS Project开发的一个实时内核.ASP内核是在遵循uITRON4.0规范的实时内
+核TOPPERS/JSP内核的基础上扩张,改良而成的.
+ 
+1.2. TOPPERS/ASP内核规范
+
+关于ASP内核的规范概要,请参照资料<TOPPERS/ASP内核概要>.包含ASP内核在
+内的TOPPERS新一代内核详细,请参照资料<TOPPERS新世代内核综合规范>,该资
+料的pdf版本可以从TOPPERS官方网站上下载.
+ 
+1.3. 迁移向导
+
+如果要从以前版本的TOPPERS内核(包含JSP内核)和其他遵循uITRON4.0规范的内核
+迁移到ASP内核的话,具体方法请参照<TOPPERS新一代内核迁移向导>,该说明以pdf
+文件的形式可以从TOPPERS官方网站上下载.
+ 
+1.4. 功能扩展与调整指南
+
+TOPPERS/ASP内核的功能扩展与调整的方法(或者是提示),以及ASP内核扩展包的使
+用方法,在<功能扩展与调整指南>有详细说明,必要时请参考.
+
+1.5. 已知问题
+
+对于中断服务例程的起始地址(ATT_ISR中的isr),中断处理函数的起始地址
+(DEF_INH中的inthdr),CPU异常处理函数的起始地址(DEF_EXC中的exchdr),初始化
+例程的起始地址(ATT_INI中的inirtn),以及结束例程的起始地址(ATT_TER中的
+terrtn)不正确的场合发生的错误,有时候配置器可能无法检出(视具体目标而定).
+ 
+kernel_cfg.c(以及cfg1_out.c)中的内容可能被内核,系统服务,应用调用和参照,
+是整个系统的关键部分.因此kernel_cfg.c中的符号可能与内核,系统服务和应用
+中的符号相冲突,造成编译,链接无法通过.虽然采用了重命名等方法以减轻这种
+冲突,但无法保证一点问题也没有.具体问题,应具体分析.
+ 
+配置文件可以使用C语言中的预处理,但支持还并不是特别完善.如使用#include,
+其检索路径存在问题,一般而言#include "xxx.h"将首先检索当前目录下是否有
+xxx.h文件,但是在配置文件中,其检索路径为编译器的头文件检索路径(-I),而这
+个路径未必会包含当前目录.一个典型的例子为syssvc/syslog.cfg中的不能使用
+#include "syslog.h",因为syssvc目录并未在编译器的-I选项中指明.
+ 
+目前ASP内核还不支持64bit系统,其中最大问题在于Motorola S格式对于64bit地址
+还不支持. 
+
+
+2. 目标依赖部分
+
+2.1. 目标依赖部分概要
+
+ASP内核的目标非依赖部分与针对各种目标系统的目标依赖部分,是分别开发的.因
+此,想要把各种目标依赖部分以及其对应的各种版本全整合起来发布实属难事.因
+此,TOPPERS发布了主要针对初学者的简易发布包和主要针对高级开发人员的个别
+发布包.
+ 
+把ASP内核移植到尚未支持的目标系统上的必要工作包括开发环境的构筑,修改与
+标准开发环境的不同之处,内核移植,系统服务移植等等.详细内容请参照<目标依
+赖部分移植向导>.
+ 
+2.2. 简易发布包
+
+对于每一个ASP内核所支持的目标系统,都有一个相应的简易发布包.简易发布包中
+包含了使ASP内核运行于目标系统之上的必要文件,例如ASP内核的目标非依赖部分
+和目标依赖部分.
+
+简易发布包的版本号,原则上要附上封装日期.但根据目标系统的实际情况也有例外.
+ 
+简易发布包基本上都包含若干个后面将要介绍的个别发布包.因此,可能含有一些
+不必要的文件.另外,简易发布包所包含的个别发布包的版本可参阅个别发布包的
+MANIFEST文件. 
+
+2.3. 个别发布包
+
+个别发布包是由各开发单位自行开发,并将该单位负责开发的那部分文件封装后发
+布的.ASP内核的目标非依赖部分是作为一个个别发布包发布的.使用一个个别发布
+包,一般都需要用到其他的个别发布包.使用目标依赖部分的个别发布包时,需要的
+其他个别发布包的版本,可以参考该目标依赖部分发布包的用户手册.整合需要的各
+种发布包,由用户自行完成.
+ 
+个别发布包的版本号形式为X.Y.Z.目标非依赖部分的版本号与ASP内核的官方发布
+版本保持一致.至于目标依赖部分的版本号X和Y与其对应的目标非依存部分保持一
+致.而Z则根据个别发布包目标依赖部分的变化而变化.
+
+使用个别发布包时,和下述目标非依赖部分的个别发布包一样,在同一目录下展开.
+
+	% tar xvfz asp-1.1.0.tar.gz.tar
+	% xvfz asp_arch_arm_gcc_1.1.2.tar.gz
+
+在ASP内核中的目标非依赖部的个别发布包中包含了以M68K系统为例的目标依赖部
+分,用作把ASP内核移植到其他目标系统时的参考. 
+
+	target/dve68k_gcc 	DVE-68K/40(GNU开发环境)的目标依赖部分
+	arch/m68k_gcc 		M68040(GNU开发环境境)的处理器依赖部分
+ 	pdic/upd72001		针对μPD72001用简易SIO(serial IO,例如UART)驱动
+
+
+3. 快速使用指南
+
+这里我们将演示在事先已经准备的ASP内核的目标系统上构建和运行ASP例程的步
+骤. 
+
+3.1. 开发环境的准备
+
+构建ASP内核的系统需要以下工具.
+ 
+	上位机(host sytem)需要的工具
+		perl		确认可以使用的版本: 5.10.0
+		GNU Make	确认可以使用的版本: 3.81
+TOPPERS新一代内核配置器
+		cfg			确认可以使用的版本: 1.7
+					* 1.5版本之前的不行
+	
+	目标系统所需要的工具(交叉编译环境)
+		支持ANSC的C编译器
+		汇编编译器(assembler),链接器(linker),库生成器(librarian)
+		符号文件输出工具,目标文件生成工具
+		C标准库(非必须)
+	
+当针对目标系统的开发环境为GNU环境时需要以下工具 
+
+	目标系统用的GNU开发环境工具 
+		BINUTILS(as,ld,ar,nm,ranlib,objcopy,objdump) 
+		GCC或者GCC-CORE(gcc以及其调用的工具) 
+		NEWLIB(C标准库,非必须) 
+
+已确认可运行的目标系统所需工具,请参照对应目标依赖部分的用户手册
+(target_user.txt). 
+
+关于目标系统的C标准库,如果应用中没有使用C标准库,则没有必要准备C标准库.但
+是编译器可能产生标准库的调用的代码(如memcpy,memset等等).此时需要标准库.
+自己实现相应C标准库函数以替代C标准库,也是可以的. 
+
+下面描述,是在具备上述工具的前提下,对在UNIX系统上构建步骤作相关说明.另外
+以下提到的make命令为GNU Make(ASP内核的sample程序的Makefile用到了GNU Make
+的扩展功能) 
+
+3.2. 配置器的构建
+
+上位机所用的C++编译器,C++库以及Boost库是构建内核配置器的必要工具.如果已
+经有了编译好的配置器文件那么此步可以省略. 
+
+在构建内核前,必须首先编译针对TOPPERS新一代内核的配置器(TOPPERS 配置器).
+如果简易发布包中已经包含了配置器的可以执行文件,此步可以省略.
+
+构建TOPPERS配置器,需要以下工具
+	上位机所需要的工具
+	C++编译器, C++库 
+		确认可以使用的版本(Mac OS X环境): GNU C++ 4.2.1
+	Boost库		确认可以使用的版本:1.42.0
+	GNU Make	确认可以使用的版本:3.81
+
+如果简易发布包中没有包含TOPPERS配置器的源文件时,首先应下载TOPPERS配置
+器个别发布包,并在ASP内核源文件所在的同一目录下展开.
+
+	% cd asp 
+	% tar xvfz cfg-1.6.0.tar.gz
+
+如果在其他目录展开,并在ASP内核源文件所在的同一目录建立相应的符号链接
+(symblelink)或快捷方式,也是可以的.
+
+展开后,进入cfg目录,通过配置脚本(configure)生成相应的Makefile环境依赖部
+分(Makefile.config)后,make生成相应的TOPPERS配置器(cfg程序)
+
+	% cd cfg 
+	% ./configure
+	% make
+
+但是,如果安装Boost库的路径以及名称与标准路径及名称不同的话,应通过configure
+脚本的--with-headers以及--with-libraries选项指定Boost库的头文件和库所在的
+目录路径.
+
+并且上位机的优化可能导致无法正常编译.这种情况下请修改Makefile以降低优化
+水平. 
+
+另外TOPPERS配置器的使用方法详见<7.配置器的使用说明>. 
+
+3.3. sample程序的构建及运行
+
+接着,对在ASP内核上如何构建sample程序的方法进行说明.
+
+首先生成放置sample程序对象文件的目录,然后运行配置脚本.比如如果将对象文
+件放置在ASP内核源文件下的OBJ路径下的话.执行以下命令(路径和名称可以任意
+指定).
+ 
+	% cd asp 
+	% mkdir OBJ 
+	% cd OBJ 
+	% perl ../configure -T <目标简称>
+
+这里的<目标简称>是target路径下放置的目标依赖部分的目录名.配置脚本的使用
+方法详见<5.配置脚本的使用>. 
+
+通过运行配置脚本,将在当前目录下生成构建例程用的Makefile,sample程序的配置
+文件(sample1.cfg)以及例程的本体(sample1.h和sample1.c). 
+
+运行配置脚本后,有必要的话请修正Makefile.Makefile的修正方法请参照
+<6.Makefile的修正方法>中的说明 
+
+然后用make depend生成依赖文件(Makefile.depend)后就可以用make命令生成例
+程的加载模块(asp或者asp.exe)了.依赖文件的生成可能需要点时间. 
+
+	% make depend 
+	% make
+
+至此,构建的的sample程序(sample1.h,sample1.c,sample1.cfg)都是些ASP内核基
+本功能展示.sample程序的概要在sample1.c的开头的注释中.
+ 
+3.4. 将内核以函数为单位生成库的方法
+
+前节所讲到的是将内核以文件为单位编译的,生成相应的内核库,然后链接.为了进
+一步缩小代码的大小,通常希望不要链接一些根本不使用的系统服务调用.因此此
+处对如何将ASP内核以函数为单位编译,并且生成相应的内核库的方法进行说明.
+ 
+还是以构建sample程序为例,只要在构建例程时,给配置脚本加上命令选项(-f)即
+可. 
+
+	% mkdir OBJ_LIB
+	% cd OBJ_LIB 
+	% perl ../configure -T <目标名> -f
+
+这里的OBJ_LIB名称和路径可以任意指定,接着的步骤和前节一样. 
+
+3.5. 应用和内核分别构建的方法
+
+前节的步骤中,为了同时生成内核及应用.在放置目标文件的目录下会生成相当多
+的文件,比较繁琐.因此,此处对如何先生成相应的内核库,然后构建应用进行说明,
+当然前提是内核以及相应的目标依赖部分不会经常修改.下面还是以 sample程序为
+例,说明其步骤.
+
+首先,新建一个构建内核用的目录,运行配置脚本.如果将KERNEL_LIB作为该目录名
+称的话,执行如下命令(当然目录路径和名称也可以任意指定). 
+	
+	% mkdir KERNEL_LIB 
+	% cd KERNEL_LIB 
+	% perl ../configure -T <目标名> -f
+
+由此在构建内核的这个路径下,就生成了Makefile,sample1.cfg,sample1.h,
+sample1.c.但是除了Makefile以外其他都没有实质性的用途.用make depend生成
+依赖关系文件Makefile.depend后.用make libkernel.a就可以生成内核库
+libkernel.a了.
+
+	% make depend 
+	% make libkernel.a
+
+接着创建应用程序的目录,并运行配置脚本.如果用源文件下APL作为目录名称并
+且在ASP内核根目录下的话, 命令如下(当然目录名和路径也可以任意指定). 
+
+	% cd ..  
+	% mkdir APL 
+	% cd APL 
+	% perl ../configure -T <目标名> -L ../KERNEL_LIB
+
+此处用命令选项-L指定放置内核库的目录. 
+
+最后用make depend生成依存关系文件Makefile.depend.再用make命令生成应用程
+序的加载模块asp或者asp.exe. 
+
+	% make depend
+	% make
+
+按上述步骤构建应用时不会再校验内核.修正内核时,需要在包含内核的那个目
+录下重新执行make libkernel.a.
+ 
+上述步骤是将内核和应用分别在不同目录下构建.也可以把命令选项-L指定为当前
+目录(但是不能用"."),从而在构建内核的同一目录下构建应用.具体如下 
+
+		% mkdir OBJ
+		% cd OBJ perl ../configure -T <目标名> -L ../OBJ
+		% make depend 
+		% make libkernel.a
+		% make cleankernel
+		% make
+
+这里make cleankernel用于删除为生成内核库而生成的中间文件.上述步骤中,由
+于make depend不会生成与内核库相关的依赖关系,所以需要修改内核源码的时候,
+请务必在make cleankernel(或者make clean)后再用make libkernel.a重新生成
+内核库. 
+
+另外,当运行make realclean时,将清除所有由make depend和make生成的文件.当
+运行make clean时,将不会清除由make depend生成的依赖关系文件.
+
+
+4. 目录构成和文件构成
+ 
+4.1. 发布包的目录构成
+
+	include/		面向应用程序的相关头文件
+	kernel/			内核源文件
+	syssvc/			系统服务的头文件和源文件
+	library/		支持的库的源文件
+	target/			目标依赖部分
+	arch/			目标依赖部分的共通部分
+		gcc/		GCC开发环境依赖部分
+		logtrace/	TRACE LOG样例代码
+	pdic/			PDIC(设备驱动的OS非依赖部分)
+	utils/			辅助工具
+	sample/			sample程序与Makefile模板
+	doc/		        说明文档
+	test/		        测试程序
+	extension/		扩展包
+
+4.2. 目标非依赖部分的相关文件
+
+目标非依赖部分(内核配置器和测试程序除外)的文件概要如下 
+
+	README.txt			TOPPERS/ASP内核简介
+	configure			配置脚本(GNU环境下使用)
+	MANIFEST			个别发布包的文件清单
+
+	include/ 
+		kernel.h		使用ASP内核时需要用到的相关定义
+		sil.h			系统接口层相关定义
+		t_stddef.h		TOPPERS的通用头文件(包含数据类型定义) 
+		itron.h			ITRON规范中所规定的通用数据类型,常量和宏
+		t_syslog.h		系统日志输出的相关定义
+		t_stdlib.h		一些基本库函数的相关定义
+		queue.h			队列操作库的相关定义
+		test_lib.h		测试程序用到的库的相关定义
+		histogram.h		运行时间直方图统计模块的相关定义
+		log_output.h	系统日志格式化输出的相关定义
+
+	kernel/ 
+		Makefile.kernel		构建内核时的内核文件组成相关定义
+		kernel_impl.h		内核封装用标准头文件
+		kernel_int.h		kernel_cfg.c使用的头文件
+		kernel_rename.def	内核内部识别名重命名的相关定义
+		kernel_rename.h		内核内部识别名的重命名
+		kernel_unrename.h	撤销内核内部识别名重命名	
+		kernel_api.csv		配置器的静态API表
+		kernel_def.csv		配置器中符号的取值表
+		kernel.tf			配置器pass2阶段的模板文件
+		kernel_check.tf		配置器pass3的模板文件
+		genoffset.tf		偏移文件生成用模板文件
+		allfunc.h			使用全部函数时用到的相关定义
+		check.h		        检错时用到的宏
+		startup.c			内核的初始化与结束
+		task.h		    	任务操作相关API的定义
+		task.c		    	任务操作相关API的实现
+		wait.h		    	等待状态操作相关API的定义
+		wait.c		    	等待状态操作相关API的实现
+		time_event.h	    时间事件管理API的相关定义
+		time_event.c	    时间事件管理API的实现
+		task_manage.c	    任务管理功能
+		task_refer.c	    任务状态参照功能
+		task_sync.c	   		任务附属同步功能
+		task_except.c	    任务例外处理功能
+		semaphore.h			信号量功能的相关定义
+		semaphore.c			信号量功能
+		eventflag.h			事件标志功能的相关定义
+		eventflag.c			事件标志功能
+		dataqueue.h			数据队列功能的相关定义
+		dataqueue.c			数据队列功能
+		pridataq.h			优先级数据队列功能的相关定义
+		pridataq.c			优先级数据队列功能
+		mailbox.h			邮箱功能的相关定义
+		mailbox.c			邮箱功能
+		mempfix.h			固定长内存池功能的相关定义
+		mempfix.c			固定长内存池功能
+		time_manage.c		系统时间管理功能
+		cyclic.h			周期定时器功能的相关定义
+		cyclic.c			周期定时器功能
+		alarm.h				单次定时器功能的相关定义
+		alarm.c				单次定时器功能
+		sys_manage.c	    系统状态管理功能
+		interrupt.h			中断管理功能的相关定义
+		interrupt.c			中断管理功能
+		exception.h			CPU异常管理功能的相关定义
+		exception.c			CPU异常管理功能
+
+	syssvc/
+		banner.h			内核起动时输出信息的相关定义
+		banner.c			内核起动时信息的输出
+		banner.cfg			内核起动信息输出的配置文件
+		logtask.h			系统日志任务时的相关定义
+		logtask.c			系统日志任务
+		logtask.cfg			系统日志任务的配置文件
+		serial.h			串行接口驱动时的相关定义
+		serial.c			串行接口驱动
+		serial.cfg			串行接口驱动的配置文件
+		syslog.h			系统日志功能时的相关定义
+		syslog.c			系统日志功能
+		syslog.cfg			系统日志功能的配置文件
+		vasyslog.c			可变参数的系统日志库函数
+
+	library/
+		histogram.c			运行时间直方图统计模块
+		log_output.c		系统日志的格式化输出
+		strerror.c			将错误信息以字符串形式返回的函数
+		t_perror.c			错误信息的输出
+		test_lib.			测试例程所用到的库
+	
+	arch/gcc/
+		MANIFEST			个别包文件列表
+		tool_stddef.h		t_stddef.h的开发环境依赖部(GCC用)
+
+	arch/logtrace/
+		MANIFEST			个别包文件列表
+		trace_config.h		TRACE LOG功能相关定义
+		trace_config.c		TRACE LOG功能
+		trace_dump.c		dump TRACE LOG
+
+	utils/
+		applyrename			适用于文件的重命名
+		genoffset		    生成offset.h(GNU开发环境下)
+		genrename			生成重命名头文件
+		gentest				生成测试程序
+		makedep				生成依来关系表(GNU开发环境下)
+		makerelease			生成发布包
+
+	sample/
+		Makefile		    sample程序的Makefile(GNU开发环境下)
+		sample1.h			sample程序(1)的相关定义
+		sample1.c			sample程序(1)
+		sample1.cfg			sample程序(1)的配置文件
+
+	doc/
+		user.txt			用户手册
+		asp_spec.txt		TOPPERS/ASP内核规范概要
+		extension.txt		功能能扩展和调整指南
+		porting.txt			目标依赖部分的移植指南
+		configurator.txt	TOPPERS配置器规范
+		design.txt			设计备
+		version.txt			版本历史
+
+
+5. 配置脚本的使用方法
+
+配置脚本(configure)是一个用来为了构建ASP内核即ASP内核以及其上的应用进行
+必要配置的perl脚本,主要用来生成相应的Makefile(GNU开发环境下).
+
+构建ASP内核上的应用程序时,首先要创建放置目标文件的目录.然后在该目录下
+运行配置脚本.这个目录的名称和路径可以自行决定.
+ 
+配置脚本的各种命令选项如下 
+
+	-T <目标名>
+		指定目标系统的名称,参数必须为target目录下放置目标依赖部分的目
+		录名称.
+		
+	-A <应用程序名>
+        指定应用程序的名称.缺省情况下为sample程序(sample1)
+
+	-a <应用程序的目录名称和路径>
+		指定应用程序源码的所在目录名称和路径(系统配置文件除外),缺省情
+		况下系统默认为当前目录下.系统配置文件应该放在目标文件的目录下.
+
+	-U <附加目标文件名>
+		除了应用程序的主目标文件(用-A指定的应用程序名附加字符o的文件)
+		以外,其他需要链接的目标文件的文件名都会追加字符o,并都由-U指定
+		.可以用""括起若干个目标文件,以指定多个目标文件(但是-U只能使用
+		一次).		
+
+	-L <内核库的目录名称>
+		当内核库(libkernel.a)已经事先构建好了,只是构建应用的时候.这
+		个命令选项用于指定内核库的存放目录.具体示例详见<3.5 分别构建应
+		用和内核的方法>
+
+	-f
+		把内核以函数为单位库化时使用此选项.具体示例见<3.4 将内核以函数
+		为单位生成库的方法>
+
+	-D <ASP内核源文件目录名称>
+		此选项用于指定存放ASP内核源码的根目录,缺省情况下为存放configure
+		脚本的目录.
+
+	-l <编程语言>
+		指定应用程序的编程语言.当前只支持C和C++.
+
+	-t <模板目录名称>
+		指定Makefile和sample程序的目录.缺省情况下为ASP所在目录的sample目录下.
+
+	-m <模板Makefile的名称>
+		指定Makefile的模板文件.缺省情况下为Makefile.
+
+	-d <运行环境名>
+		指定目标系统上程序的运行环境(为指定时,指debug环境)使用此选项后运
+		行环境名会被宏定义( TOPPERS_<调试环境名>).不使用则不会被宏定义.
+       
+	-r
+		使用追踪日志记录的示例代码.使用示例详见<11.6追踪日志记录的示例
+		代码的使用方法>.
+
+	-p <perl目录名>
+		指定perl的目录.缺省情况下,系统自动搜索目录/usr/local/bin和
+		/usr/bin.
+
+	-g <配置器的目录名称>
+		指定配置器的目录.缺省情况下,默认目录为ASP内核根目录下的
+		cfg/cfg/cfg.
+
+配置脚本会进行如下处理 
+
+(1) 生成Makefile
+
+配置脚本从模板文件的目录下(默认为sample)选择适当的Makefile,修改一些必
+要的地方后,生成可以使用的Makefile.
+
+(2) 生成例程
+
+如果指定的应用程序目录为模板文件的目录,配置脚本将选择适当的应用程序的源
+文件, 修改一些必要的地方后,即生成最终的应用源文件(比如sample1.h,
+sample1.c,sample1.cfg).
+
+(3) 校验TOPPERS配置器是否成功构建
+
+配置脚本会检查是否已经生成了配置器文件(cfg),如果没有,TOPPERS配置器将
+输出请构建配置器的提示信息.
+
+
+6. Makefile的修正
+
+前节中讲到,可以通过配置脚本的各种命令选项生成Makefile.但当配置器不能满
+足需求时,就需要直接修改Makefile.这里对Makefile的一些修改可能性高的地
+方作详细说明.
+ 
+另外,需要注意的是,当直接修改了Makefile后,如果再执行配置脚本,其生成的
+Makefile会将修改后的Makefile替换掉(但是修改后的Makefile并没有被删除而
+是被另存为Makefile.bak).
+
+6.1. Makefile变量的定义
+
+(A) 目标名
+
+将target目录下目标依赖部分的目录名称指定为目标系统名.通常在配置脚本中用
+-T定义.
+
+(B) 目标文件的扩展名
+
+当在Cygwin环境下编译时,OBJEXT将加上扩展名exe.因为在Cygwin环境下加载模块
+的文件都会被加上扩展名exe.如果配置脚本判定编译环境为Cygwin时,配置脚本会
+进行此操作.
+
+(C) 运行环境(目标依赖)
+
+为了能根据目标系统以及其对应的运行环境选择对应的代码,用DBGENV定义运行环
+境名称.通常用配置脚本的选项-d定义就可以了.什么目标系统,对应什么样的运
+行环境请参照目标系统的用户手册.
+
+(D) 内核库的目录名
+
+在KERNEL_LIB定义了内核库的存放目录名和路径.通常用配置脚本的-L定义.
+
+(E) 定义是否将内核以函数为单位编译
+
+当需要将内核以函数为单位编译的时候,KERNEL_FUNCOBJS会被定义为true,否则
+不定义KERNEL_FUNCOBJS.通常用配置脚本的-f定义.
+
+(F) 通用编译选项
+
+如果需要对所有程序添加通用的编译选项,请变更以下变量的定义.如果某个编译
+选项在某个特定的目标系统中经常用到的话,请修改包含目标依赖定义的
+Makefile.target文件.
+
+	CDEFS		记述针对编译器的-D命令选项
+	INCLUDES	记述针对编译器的-I命令选项
+	COPTS		记述针对编译器的其他命令选项
+	LDFLAGS		记述针对链接器的命令选项
+	LIBS		记述库连接的命令选项
+
+可添加的编译选项详见<6.2 编译选项>
+
+(G) 应用程序名
+
+APPLNAME定义了应用程序名.系统配置文件名是在APPLNAME定义的应用程序名后添
+加扩展名"cfg".另外,应用程序的主文件会添加上扩展名".c".通常用配置脚本的-A
+定义.
+
+(H) 应用程序的目录名
+
+如果想将应用程序的源文件与目标文件(编译目录)分开放置,需将APPLDIR定义为
+期望的目录名.通常用配置脚本的-a定义,并且为了可以定义多个应用程序的存放
+目录,APPLDIR的定义会随之变化.
+
+(I) 应用的程序文件名
+
+如果有应用程序有多个源文件的话,相应的目标文件以APPL_ASMOBJS,APPL_COBJS
+,APPL_CXXOBJS列举.
+
+(J) 应用程序的编译选项
+
+在编译应用程序时如果需要指定编译选项或者需要某些函数库的时候.定义
+APPL_CFLAGS以及APPL_LIBS.
+
+(K) 加载模块的文件名
+
+OBJNAME定义了标准的加载模块文件名.默认为asp
+
+(L) 目标文件的定义
+
+作为all所依赖的文件,制定最终目标文件的格式.具体的而言,ELF格式最终目标
+文件为$(OBJFILE),二进制格式最终目标文件为$(OBJNAME).bin,Motorola S格
+式的最终目标文件为$(OBJNAME).srec.$(OBJFILE)在Cygwin环境下,OBJEXT为
+.exe是,为$(OBJNAME).exe.在非Cygwin环境下,为$(OBJNAME)
+
+(M) makedep的选项定义
+
+Cygwin环境下如果根目录不为"cygdrive",需要通过makedep的-R选项指定根目录名
+.对于Makefile的目标部分(":"的左边)记述了多个文件名(在以函数为单位生成内
+核库时,将生成这样的记述),动作不正确的情况(对于Cygwin环境下GNU make可能会
+存在这样限制),必须要给makedep附加-S选项.
+
+把makedep的选项，按下面例子的方式，定义到MAKEDEP_OPTS中.
+
+MAKEDEP_OPTS = -R cygdrive -S
+
+
+6.2. 编译选项
+
+在ASP内核源码中使用了宏assert,可以通过定义NDEBUG清除目标代码中的assert.
+如果已完成内核的调试,那么可以指定选项-DNDEBUG以提高编译效率.
+ 
+有些目标依赖部分中可能指定了编译选项-Werror(将警告作为错误处理).如果应
+用中无法避免警告时,需要修改目标依赖部分的Makefile.target,删除选项
+-Werror.
+ 
+另外可以定义TOPPERS_OMIT_SYSLOG后再编译,就可以抑制出系统日志的输出.
+ 
+7. 配置器的使用
+
+如TOPPERS新一代内核规范的2.12.5节所记述的那样,TOPPERS配置器的配置过程由
+三个阶段(pass)组成.
+ 
+TOPPERS配置器将系统配置文件名作为参数,具体有以下命令选项(下面仅包括一些
+重要选项).
+ 
+	--help 显示命令选项的帮助信息.
+
+	-v［--version］ 显示配置器版本
+
+	-k［--kernel］<内核名> 指定内核的名称默认为asp.
+
+	-p［--pass］<pass号>
+		指定pass号(1-3)
+
+	-I［--include-path］<include的目录>
+		在INCLUDE目录下,指定搜索引用的配置文件的目录名
+
+	-T［--template-file］<模板文件名>
+		指定模板文件名,仅在pass2和3中有效.
+
+	--api-table <静态API列表名>
+		指定静态API的列表文件的名称.
+
+	--cfg1-def-table <符号取值表文件表名称>
+		指定符号取值表文件表名称.
+
+	-r［--rom-image］<加载模块名>
+		指定加载模块转换为Motorola S格式后的文件名.仅在pass3有效.
+
+	-s [--symbol-table] <符号文件名>
+		指定包含了加载模块中各种符号以及地址符号的文件的文件名.仅在
+		pass3有效.
+
+	--id-output-file <ID号输出文件名>
+		指定对象ID分配结果文件的文件名.仅在pass2有效.
+
+	--id-input-file <ID号输入文件名>
+		配置器将从用这个选项指定的文件中提取对象进行ID分配.仅在pass2有
+		效.
+
+	--external-id
+		生成存放对象ID号的变量的宏定义.仅在pass2有效.
+
+	-M［--print-dependencies］<目标名>
+		输出系统配置文件的依存关系.在Makefile生成依存关系时使用.
+
+关于TOPPERS配置器的详细规范,已经另以PDF格式的文件发布,即<TOPPERS新一代
+内核配置器规范>. 
+
+
+8. 系统服务
+
+8.1. 系统日志功能
+
+所谓系统日志功能,是将内核发生的异常事件,内核的追踪日志,系统服务和应用程
+序发生的异常事件等以日志信息的形式记录并包含读取相应日志信息的功能. 
+
+当系统配置文件包含了配置文件syslog.cfg,系统便可以使用系统日志功能.当源
+码中需要输出系统日志时,需要包含头文件t_syslog.h,如果还需要系统日志功能
+的其他服务则需要包含头文件syslog.h.
+
+8.1.1. 系统日志功能的定位
+
+为了使内核能调用系统日志功能,我们把系统日志功能定位为比内核更下层的模块
+.也就是说,系统日志功能与其他的系统服务的定位是不同的.
+
+一方面,在输出日志信息时需要用到串行接口驱动等居于内核上层的系统服务.因
+此将输出系统日志的服务(我们称之为系统日志任务)与系统日志功能分开实现.将
+系统日志功能限于日志信息的记录和使记录能被上层提取.
+
+如上所述虽然系统日志功能是比内核更下层的模块,但在获取日志记录时间时需要
+用到内核的相关功能,并直接访问内核的内部变量.因此,在内核开始执行前和结束
+后,将无法正确记录日志时间。
+ 
+8.1.2. 写日志缓冲区和底层输出
+
+如上所述,日志信息的输出需要用到在内核上运行的系统服务,但是当在调试这些
+系统服务时或者内核出现较大异常时便不能使用这些系统服务输出日志信息.
+
+因此特意准备了不用内核上层的系统服务输出日志信息的底层输出功能.底层输出
+功能是使用目标依赖部分中的底层字符输出函数(target_fput_log)输出日志信息
+的功能.但在嵌入最终产品时因产品特性可能无法输出字符,这时用底层字符输出
+函数传送的字符便只能放置在内存中,最终被丢弃.
+
+可以通过调用系统日志功能的服务调用(syslog_msk_log)设定是将日志信息写入
+日志缓冲区还是用底层字符输出函数输出.默认情况下(系统日志任务不起动,
+syslog_msk_log也不被调用时),所有的日志信息都将使用底层输出功能输出,而不
+记录在日志缓存中.syslog_msk_log的使用将在后文讲到.
+
+由于使底层输出时,日志消息的生成(相当于printf)和低水平字符的输出处理都是
+在内核内进行的,因此必须注意的是此时内核的应答性会降低.特别是底层字符输
+出以设备查询的形式实现的时候,内核的应答性将降低到无法实用的地步.
+ 
+8.1.3. 日志信息的类别
+
+系统日志功能中具备如下种类的日志信息
+	LOG_TYPE_COMMENT	注释
+	LOG_TYPE_ASSERT		ASSERT失败
+	LOG_TYPE_INH		中断处理函数
+	LOG_TYPE_ISR		中断服务例程
+	LOG_TYPE_CYC		周期定时器
+	LOG_TYPE_ALM		警报定时器
+	LOG_TYPE_OVR		超时定时器
+	LOG_TYPE_EXC		CPU异常处理函数
+	LOG_TYPE_TEX		任务异常处理例程
+	LOG_TYPE_TSKSTAT	任务状态变化
+	LOG_TYPE_DSP		调度器
+	LOG_TYPE_SVC		服务调用
+
+上述种类中除了LOG_TYPE_COMMENT和LOG_TYPE_ASSERT,其余种类都是内核追踪日
+志中使用的,具体是否使用取决于目标依赖部分.
+ 
+8.1.4. 日志信息的重要度
+
+系统日志功能可以根据日志信息的重要度动态设定实际输出的日志信息.此功能模
+仿的是UNIX系统,日志信息的重要度种类以及制定方法也参考了UNIX的API.另外对
+于由底层输出功能输出的日志信息,也可以动态设定重要度.
+ 
+具体而言日志的重要度有8级,如下:
+ 
+		LOG_EMERG			内核无法继续运行下去的错误
+		LOG_ALERT
+		LOG_CRIT
+		LOG_ERROR			不是很重要的系统错误
+		LOG_WARNING			警告信息,系统仍可安全运行
+		LOG_NOTICE
+		LOG_INFO
+		LOG_DEBUG			调试用信息
+
+可以用系统日志功能的服务调用(syslog_msk_log)指定什么重要度的日志信息写
+入日志缓冲区,什么重要度的日志信息由底层输出功能输出.
+
+8.1.5. 日志信息的数据结构
+
+日志信息由结构体SYSLOG保存.SYSLOG结构体中,含有日志种类信息(logtype域),日
+志时刻信息(logtim域),和其它的日志信息(loginfo域). 
+
+输出SYSLOG 结构体中保存的日志信息时,日志时刻由输出函数(syslog_wri_log)写
+入,调用方不需要写入.
+
+8.1.6. 系统日志功能的服务调用
+
+系统日志功能提供如下服务调用.使用这些服务调用时需要包含头文件syslog.h. 
+
+(1) ER syslog_wri_log(uint_t prio, const SYSLOG *p_syslog)
+
+向系统日志功能提交日志信息并指定其重要度(写入日志缓冲区或者是用低水平输
+出功能输出). 
+
+在这个函数声明中,形参*p_syslog虽然被指定为const,但实际上,函数内部会把
+系统时刻写入到域logtim中.
+
+(2) ER_UINT syslog_rea_log(SYSLOG *p_syslog)
+
+从日志缓冲区取出一条信息.如果缓冲区为空则返回E_OBJ,否则返回溢出的信息
+条数(没有溢出时为零).默认是在系统日志任务中使用的服务调用.
+
+(3) ER syslog_msk_log(uint_t logmask, uint_t lowmask)
+
+设定可以写入日志缓冲区的信息的重要度的bitmap(logmask)以及可以用低水平
+输出功能输出的信息的bitmap(lowmask).LOG_MASK和LOG_UPTO是为了生成
+bitmap而定义的两个宏.
+
+(4) ER_UINT syslog_ref_log(T_RLOG *pk_rlog)
+
+该服务调用用于获取系统日志功能的状态.比如,日志缓冲区中的信息条数,溢出
+的信息条数,日志缓冲区的bitmap和低水平输出的bitmap等.
+
+8.1.7. 系统日志功能的库函数和宏
+
+系统日志功能的库函数和宏如下.调用这些函数时需要包含头文件t_syslog.h.
+ 
+(1) void _syslog_n(uint_t prio, uint_t type, intptr_t arg1, ..., intptr_t argn)
+	* n的取值为0-6
+
+该函数输出类别为type,重要度为prio,参数为arg1-argn的日志信息.
+
+(2) void syslog_n(uint_t prio, const char *format, arg1, ..., argn)
+	* n的取值为0-5
+
+该宏根据format定义的格式以及其后的参数arg1-argn生成日志消息并输出,日志类
+别为LOG_TYPE_COMMENT,重要度为prio.
+
+format指定了消息的格式,arg1-argn为指定格式时的一些参数值,相当于printf格
+式的一些子设置.在该宏中,参数将被转换为intptr_t型,所以可以传递能转换为该
+类型的任何类型的参数,系统不会再作类型检查.但对于format和arg1-argn有如下
+限制.
+
+* 在format中指定格式的字符串的参数必须是常量.经宏处理后也不能改变.
+
+* format可以指定下述格式
+
+	%d		将传递的参数看作int_t型,用十进制显示
+	%u		将传递的参数看作uint_t型,用十进制显示
+	%x		将传递的参数看作uint_t型,用十六进制显示(字母为小写)
+	%X		将传递的参数看作uint_t型,用十六进制显示(字母为大写)
+	%p		将传递的参数看作指针,用十六进制显示(字母为小写)
+	%c		将传递的参数看作字符,显示为字符
+	%s		将传递的参数看作字符串,显示为字符串
+	%%		显示%(不需要参数)
+
+%d, %u, %x, %X中可以在%号后直接用指十进制数指定需要显示的位数.如果
+字符串未满指定位数的话,以右对齐的方式显示.如果指定位数的十进制数以0开始,
+那么未满的地方会补0.
+
+另外,有些环境intptr_t型数据的位数比long型还多.这时可以指定以下格式.
+其他格式即使添加l也会被忽视(没有对应的%lc和%ls).
+
+	%ld		将传递的参数看作long_t型,用十进制显示
+	%lu		将传递的参数看作ulong_t型,用十进制显示
+	%lx		将传递的参数看作ulong_t型,用十六进制显示(字母为小写)
+	%lX		将传递的参数看作ulong_t型,用十六进制显示(字母为大写)
+
+向arg1-argn传递指针时(使用%s时),指针指向的数据应该是常量,宏处理结束后也
+不能发生变化.
+
+(3) void syslog(uint_t prio, const char *format, ...)
+
+该函数根据format定义的格式以及其后的参数生成的日志消息并输出,日志类别为
+LOG_TYPE_COMMENT,重要度为prio.这里format后的参数为变量,其后最多能跟5个
+参数,并且有着和syslog_n相同的限制.
+
+该库函数由于使用的是可变参数,函数内部会扫描字符串,执行时间可能较长,不适
+合在中断屏蔽状态下调用.主要用于应用程序.
+
+(4) UINT LOG_MASK(UINT prio)
+
+生成只有重要度prio的bitmap的宏.在生成传递给syslog_msk_log的参数时使用.
+
+(5) UINT LOG_UPTO(UINT prio)
+
+生成prio以上的重要度都被置位的bitmap的宏.在生成传递给syslog_msk_log的参
+数时使用.
+
+8.1.8. 系统日志功能的其他服务
+
+系统日志功能除了上述服务调用外,还有个在初始化系统日志功能时使用的函数.
+ 
+(1) void syslog_initialize(intptr_t exinf)
+
+初始化系统日志功能.由syslog.cfg将其作为内核中的一个初始化例程注册.忽略参
+数exinf.
+ 
+8.2. 串行接口驱动
+
+串行接口驱动为操作串行口的驱动程序.
+
+只要在系统配置文件中包含serial.cfg就可以把串行接口驱动登录到系统中.调用
+串行接口驱动的源文件需要包含头文件serial.h.
+
+串行接口驱动给每个端口都提供了接收和发送两个信号量.生成信号量的静态API包
+含在serial.cfg中.
+ 
+8.2.1. 串行接口驱动的服务调用
+
+调用串行接口驱动的服务调用的规范如下.其中,对串行端口的ID号(portid)的解
+释是目标依赖的.这些服务调用均不能在非任务上下文中被调用,另外
+serial_rea_dat和serial_wri_dat不能在调度器保留状态(即不能进行调度)下被
+调用,否则均会返回错误码E_CTX.
+ 
+(1) ER serial_opn_por(ID portid)
+
+打开由portid指定的串行口,使能其接收和发送.
+
+(2) ER serial_cls_por(ID portid)
+
+关闭由portid指定的串行口.
+
+(3) ER_UINT serial_rea_dat(ID portid, char *buf, uint_t len)
+
+从由portid指定的串口接收长度为len字节的字符串,并写入buf中.在接收完毕之
+前,相应的调用任务会被挂起进入等待状态直到接收完毕,并返回已接收到的字符数
+或错误码.
+
+(4) ER_UINT serial_wri_dat(ID portid, char *buf, uint_t len)
+
+向由portid指定的串行口发送由地址buf开始长度为len字节的字符串.在len字节
+的字符串写入串行口缓冲区之前,相应的调用任务会被挂起进入等待状态直到写入
+完毕,并返回已发送的字符数或者返回错误码.
+
+(5) ER serial_ctl_por(ID portid, uint_t ioctl)
+
+设定ID号为portid的串行口的控制模式(ioctl).
+
+可以ioctl为下述控制信息所对应的模式的位或.
+
+	IOCTL_ECHO(echo back模式)
+		如果该位被置位,串行接口驱动会进入echoback模式,即每当从缓冲区取
+		出字符后都会将其回送.
+
+	IOCTL_CRLF(换行模式)
+		每当遇到LF(line feed)时,都会自动转换为CR(carriage return)
+		+LF.
+
+	IOCTL_FCSND(输出流控制)
+		针对字符输出由XON/XOFF实行流控制,即说当接收到STOP(CTRL-s)时串
+		行口停止发送,当接收到START(CTRL-去)时再继续发送.
+
+	IOCTL_FCANY(任意字符继续发送)
+		指定了IOCTL_FCSND时,中止的发送在接收到任意字符后再继续.
+
+	IOCTL_FCRCV(接收流控制)
+		针对字符输入由XON/XOFF实行流控制.也就是说当接收缓冲区不足时发送
+		STOP(CTRL-S),当有足够的缓冲区时再发送START(CTRL-Q).
+
+串行口开启后的默认设定值为(IOCTL_ECHO | IOCTL_CRLF |IOCTL_FCSND |
+IOCTL_FCRCV).
+
+(6) ER serial_ref_por(ID portid, T_SERIAL_RPOR *pk_rpor)
+
+查询ID号为portid的串口的状态,并将状态信息返回到pk_rpor指向的信息包中.
+接收缓冲区中的字符数返回到成员变量reacnt中,发送缓冲区中的字符数返回到
+成员变量wricnt中.
+
+8.2.2. 串行接口驱动的其他服务
+
+串行接口驱动除上述服务调用外还具备初始化和提取未发送字符的功能.初始化处
+理将作为初始化例程注册到内核中.另外,相应目标依赖部分也有初始化,结束处理
+以及中断服务函数.这些注册处理都包含在serial.cfg中.
+
+(1) void serial_initialize(intptr_t exinf)
+
+初始化串行接口驱动,该函数作为初始化例程注册到内核中.忽略参数exinf.
+
+(2) bool_t serial_get_chr(ID portid, char *p_c)
+
+将由ID号为portid的串口接收缓冲区的字符存放到p_c指向的内存中.如果缓冲区
+为空则返回false否则返回true.通常由结束处理例程调用.
+
+8.3. 系统日志任务
+
+系统日志任务是通过系统日志功能提取系统日志信息并向外部输出的任务.
+
+包含于ASP内核发布包中的系统日志任务,利用串行口以字符串的形式输出日志信
+息,其可以作为系统日志任务一个的示例.
+ 
+只要在系统配置文件中包含logtask.cfg就可以将系统日志任务载入系统,且调用
+系统日志任务的相应的源文件需要包含头文件logtask.h.
+ 
+8.3.1. 系统日志任务的服务调用
+
+系统日志任务的服务调用如下. 
+
+(1) ER logtask_flush(uint_t count)
+
+清空系统日志功能的缓冲区,并等待,直到系统日志功能的日志缓冲区中的消息条
+数小于count.如果count为0则一直等到串行接口驱动的缓冲区的发送缓冲区为空.
+
+8.3.2. 系统日志任务的其他服务调用
+
+系统日志任务除了上述服务调用外还有主函数处理,结束处理.主函数处理作为任
+务注册,而结束处理则作为结束处理例程注册.相应的注册处理都包含在
+logtask.cfg中. 
+
+(1) void logtask_main(intptr_t exinf)
+
+系统日志任务的主函数处理.参数exinf为输出日志信息的串行口ID号.
+
+(2) void logtask_terminate(intptr_t exinf)
+
+系统日志任务的结束处理.将把串口驱动的发送缓冲区中的数据以及日志缓冲区中
+的日志信息由底层输出功能全部输出.当有信息残留时,在输出残留信息前将输出
+"-- buffered messages--"作为提示.忽略参数exinf.
+
+8.4. 内核起动消息的输出
+
+ASP内核在起动时将输出内核名称,版本,著作权等起动消息.在系统配置文件中包
+含banner.cfg就可载入内核起动消息输出功能.内核起动消息的输出由下述函数完
+成. 
+
+(1) void print_banner(intptr_t exinf)
+
+利用系统日志功能输出内核起动消息.由banner.cfg将其作为初始化例程注册到内
+核中.忽略参数exinf.
+
+
+9. 系统支持函数库
+
+所谓系统支持函数库,是指为了构建应用程序或系统服务而准备的函数集合. 
+
+9.1. 基本的库函数
+
+使用基本的库函数时,需要包含头文件t_stdlib.h,并且需要编译和链接
+strerror.c和t_perror.c两个文件.
+
+(1) const char *itron_strerror(ER ercd)
+
+参数ercd为错误码,该函数返回ercd所传递的错误码的主码所对应的字符串.
+
+(2) void t_perror(uint_t prio, const char *file, int_t line,const char
+	*expr, ER ercd)
+
+根据重要度大小,使用系统日志功能输出文件名,行号,错误码主码等信息.通常在
+服务调用报错时使用.
+
+9.2. 队列(queue)操作库函数
+
+队列操作库为操作包括队列头(queue header)在内的,链表形式的双向队列(双向链
+表)函数集.队列头的后项指针指向队列的第一项,队列头的前项指针指向队列的最
+后一项,同时队列第一项中前项指针指向队列头,队列最后一项中的后项指针也指向
+队列头.对于空队列,队列头的后项指针和前向指针都指向队列头自身.
+
+当使用队列操作库函数时,需要包含queue.h.
+
+QUEUE为队列头和队列项的数据类型,其结构如下.
+
+	typedef struct queue {
+		struct queue *p_next;		/* 后项指针 */
+		struct queue *p_prev;		/* 前项指针 */
+	} QUEUE;
+
+相应的队列操作库函数如下.
+
+(1) void queue_initialize(QUEUE *p_queue);
+
+初始化队列,p_queue指向队列头.
+
+(2) void queue_insert_prev(QUEUE *p_queue, QUEUE *p_entry);
+
+在p_queue所指向的队列项的前面插入一个p_entry所指向的队列项.如果p_queue
+指向队列头,那么将把p_entry所指向的队列项插入到队列的末尾.
+
+(3) void queue_insert_next(QUEUE *p_queue, QUEUE *p_entry);
+
+在p_queue所指向的队列项的后面插入一个p_entry所指向的队列项.如果p_queue
+指向队列头,那么将把p_entry所指向的队列项插入到队列的头部.
+
+(4) void queue_delete(QUEUE *p_entry);
+
+把p_entry所指向的队列项从队列中删除.
+
+(5) QUEUE *queue_delete_next(QUEUE *p_queue);
+
+把p_entry所指向的队列项的后一项从队列中删除,并返回被删除项的地址.如果
+p_queue指向队列头,则删除队列的头部项.如果p_queue指向空队列,则不能调用该
+函数.
+
+(6) bool_t queue_empty(QUEUE *p_queue);
+
+检查队列是否为空,如果为空返回true,否则返回false.p_queue应指向队列头.
+
+9.3. 输出系统日志用库函数
+
+输出系统日志用库函数是指在系统日志任务和系统日志功能中用于格式化输出日
+志信息的库函数.使用输出系统日志用库函数时,需要包含头文件log_output.h,并
+编译链接log_output.c.
+
+(1) void syslog_printf(const char *format, intptr_t *args, void 
+         (*putc)(char))
+
+将以format指定的格式和p_args指定的若干参数生成的消息用单个字符输出函数
+putc输出.
+
+(2) void syslog_print(SYSLOG *p_sys, void (*putc)(char))
+
+将p_syslog指向日志信息生成字符串,用单个字符输出函数putc输出.
+
+(3) void syslog_lostmsg(uint_t lost, void (*putc)(char))
+
+通过字符输出函数putc,输出关于丢失的日志信息的个数的信息.
+
+9.4. 运行时间直方图统计模块
+
+运行时间直方图统计模块是一个用于评价系统实时性能,测量程序段运行时间并将
+程序各段运行时间以直方图的形式统计并显示的一些库函数.
+
+使用运行时间直方图统计模块库函数时,需要包含头文件histgram.h,并编译链接
+histogram.c. 
+
+运行时间直方图统计模块可以对若干个程序段的运行时间进行测量,统计及显示.每
+个程序段都可以用ID号(histid)为其指定其对应的时间记录的数据结构.总共可使
+用的数据结构的数量定义为TNUM_HIST,其默认值已经定义在histgram.c中.通过编
+译选项或者目标依赖部分(target_test.h或者其中所包含的头文件)可以改变
+TNUM_HIST的值. 
+
+如果目标依赖部分中没有变更相应的设定,运行时间直方图统计模块利用内核的性
+能评价用系统时刻参照功能(get_utm),测量程序段的运行时间,因此其单位为微秒(
+具体精度依赖于目 标系统).另外所测定的时间包含了测量本身的时间开销
+(get_utm的执行时间＋α). 
+
+如果目标依赖部分中变更了相应的设定,具体细节参照目标依赖部分用户手册.
+
+(1) void init_hist(ID histid, uint_t maxval, uint_t *hist)
+
+初始化ID号为histid的数据结构.maxval为测量时间的上限,hist指向存放记录的
+内存首址.存放记录的数据结构为数组,其元素个数等于maxval+1,数据类型为
+uint_t.比如maxval为1000时,hist的元素个数便必须为1001.
+
+(2) void begin_measure(ID histid)
+
+该函数在需要测量的程序段前调用,以记录当前的系统时间.histid为存放记录的
+数据结构ID号.
+
+(3) void end_measure(ID histid)
+
+该函数在需要测量的例程段后调用,获取当前的系统时间后与ID号为histid的数据
+结构中的起始时间作运算求出运行时间并储存.
+
+(4) void print_hist(ID histid) 
+
+利用系统日志功能,输出运行时间的直方图统计结果.
+
+
+10.内核功能测试与性能评价(Test Program)
+
+ASP内核功能测试与性能评价是一组用于测试内核功能和对内核性能进行评价的一
+系列例程.
+
+10.1 功能测试库
+
+功能测试库包含一系列用于检查例程中的检查点(checkpoint)是否按正确的顺序
+执行和例程的相应动作是否正常的函数.当检测出例程动作不正常时,相应的例程
+将会终止.
+
+当例程终止时,如果对尚未输出的日志信息进行输出操作,可能有一部分信息会丢失
+.详细请参照<8.3.2 系统日志任务和其他服务>中(2)的描述.
+
+当使用功能测试库时,需要包含test_lib.h,并编译链接test_lib.c
+
+(1) void check_point(uint_t count)
+
+通过某个检查点时,调用此函数,count指定为第几个检查点,其值从1开始递增.当
+检查点初始值不为1或者检查点不是按顺序通过时,例如从检查点1直接跳到了检查
+点3,那么意味着例程的顺序不正确,例程终止.
+
+(2) void check_finish(uint_t count),count指定为第几个检查点,其值从1开
+始递增.
+
+当到达最后一个检查点时,调用此函数,其值从1开始递增.当检查点不是按顺序
+通过时,例如从检查点1直接跳到了检查点3,那么意味着例程的顺序不正确,例程
+终止
+
+(3) void check_assert(bool_t exp)
+
+检查表达式exp是否为真.exp为假时,例程不正常,例程终止.
+
+(4) void check_ercd(ER ercd, ER expected_ercd)
+
+检查错误号ercd是否与期望的错误号(expected_ercd)一致.不一致时,例程不正常,
+例程终止.
+
+(5) void check_state(bool_t ctx, bool_t loc, PRI ipm, bool_t dsp, 
+	 bool_t dpn, bool_t tex)
+
+该函数在任务上下文中,当希望检查内核状态是否为期望状态时调用.ctx,loc,
+ipm, dsp, dpn, tex为期望的内核状态,期望状态将与通过sns_ctx(), sns_loc,
+get_ipm(), sns_dsp(), sns_dpn(), sns_tex()获得的内核实际状态进行比较.当
+期望状态与实际状态不一致时, 例程不正常,例程终止.
+
+(6) void check_state_i(bool_t ctx, bool_t loc, bool_t dsp, bool_t dpn,
+	bool_t tex)
+
+该函数在非任务上下文中,当希望检查内核状态时调用.ctx, loc, dsp, dpn,
+tex为期望的内核状态,期望状态将与通过sns_ctx(), sns_loc, sns_dsp(),
+sns_dpn(), sns_tex()获得的内核实际状态进行比较.当期望状态与实际状态不一
+致时,例程不正常,例程终止.
+
+(7) void set_bit_func(BIT_FUNC bit_func)
+
+check_point()函数中可以调用自行定义的检查函数.该函数通过set_bit_func()
+设定
+
+(8) void syslog_flush(void)
+
+通过底层输出函数输出所有系统日志
+
+(9) void test_finish(void)
+
+测试例程终止.当测试例程结束时,调用此函数
+
+10.2 内核整合性检查
+
+当经过检查点,调用check_point函数时,ASP内核可以在check_point中以自行定义
+的检查函数形式进行内核整合性检查,主要检查内核中各数据结构是否一致(目前
+尚未完成).
+
+当使用内核整合性检查功能时,需要编译链接bit_kernel.c.
+
+(1) ER bit_kernel(void)
+
+该函数将对内核各数据结构的一致性进行检查,如果所有的数据结构一致性得到确
+认,返回E_OK.否则返回E_SYS.
+
+10.3 功能测试
+
+test目录中以"test"开头的例程是用于对内核功能进行测试的一系列例程.
+
+内核功能测试由于使用了功能测试库,所以构建功能测试例程时,必须在Makefile中
+APPL_COBJS选项里,追加test_lib.o.当使用配置脚本时,需使用-U选项追加
+test_lib.o.具体如下所示(假定相应的测试例程的目录为内核根目录的第一级
+子目录)
+
+	% perl ../configure -T <目标名> -A <功能测试例程名> \
+		-a ../test -U test_lib.o 
+
+对于CPU异常处理测试例程(1)和(13),由于使用了同一个系统配置文件
+test_cpuexc.cfg,因此需要做如下处理.
+	
+	% cp ../test/test_cpuexc.cfg test_cpuexc<测试序号>.cfg
+
+当前版本中,包含以下一系列内核功能测试例程
+
+(1) test_cpuexc1			CPU异常处理测试(1)
+(2) test_cpuexc2			CPU异常处理测试(2)
+(3) test_cpuexc3			CPU异常处理测试(3)
+(4) test_cpuexc4			CPU异常处理测试(4)
+(5) test_cpuexc5			CPU异常处理测试(5)
+(6) test_cpuexc6			CPU异常处理测试(6)
+(7) test_cpuexc7			CPU异常处理测试(7)
+(8) test_cpuexc8			CPU异常处理测试(8)
+(9) test_cpuexc9			CPU异常处理测试(9)
+(10) test_cpuexc10			CPU异常处理测试(10)
+(11) test_cpuexc11			CPU异常处理测试(11)
+(12) test_cpuexc12			CPU异常处理测试(12)
+(13) test_cpuexc13			CPU异常处理测试(13)
+(14) test_dlynse			sil_dly_nse相关测试
+(15) test_sem1				信号量功能测试(1)
+(16) test_sem2				信号量功能测试(2)
+(17) test_sysstat1			系统状态相关测试(1)
+(18) test_task1				任务管理相关测试(1)
+(19) test_tex1				任务异常处理测试(1)
+(20) test_tex2				任务异常处理测试(2)
+(21) test_utm1				get_utm相关测试(1)
+
+CPU异常处理测试当中一部分,在从CPU异常处理函数返回后,需要继续执行引发
+CPU异常的命令.如果不能实现的话,需要在内核功能测试与性能评价的目标依赖
+部分中定义宏CANNOT_RETURN_CPUEXC.详细请参照<目标依赖部分移植指南>
+
+10.4 性能测试例程
+
+test目录中以"perf"开头的例程是用于对内核进行性能评价的一系列例程.
+
+在性能评价例程中,反复执行评测对象相应处理,并记录执行时间,最后以直方图的
+形式显示结果
+
+记录的时间中包含了记录时间所需要的花费.为了得到正确的执行时间需要减去记
+录时间所需要的花费,而该花费可以用通过perf0得到.
+
+另外记录的过程中,如果发生了中断(例如,系统时钟中断),那么中断处理的花费也
+包含在记录的时间中.
+
+在对内核进行性能评价时,应留意相关硬件的设定(如cache).
+
+内核性能评价由于使用了功能测试库和运行时间直方图统计模块,所以构建性能评
+价例程时,应在Makefiel中APPL_COBJS选项里追加test_lib.o和histogram.o.当
+使用配置脚本时,需使用-U选项追加test_lib.o和histogram.o.具体如下所示(假
+定相应的测试例程的目录为内核根目录的第一级子目录)
+	
+	% perl ../configure -T <目标名> -A <性能评价例程名> \
+		-a ../test -U test_lib.o
+
+当前版本中,包含以下一系列内核性能测试例程
+
+(1) perf0		记录时间所需要的时间评价
+
+在该例程中,通过测量一段空的程序(连续调用begin_measure和end_measure)来获
+得记录时间所需要的花费.
+
+在其他评价例程中,应减去记录时间的花费才能得到正确的时间.
+
+(2) perf1		由slp_tsk,wup_tsk引起的任务切换的时间评价
+
+该例程测量由slp_tsk,wup_tsk引起的任务切换时间.具体而言,首先高优先级的任
+务通过slp_tsk进入等待状态,然后测量从低优先级任务开始执行,并通过wup_tsk
+唤醒高优先级的任务,到高优先级任务开始执行之间的时间,以及从高优先级任务
+通过slp_tsk进入等待状态,到低优先级任务开始执行的时间.
+
+(3) perf2		snd_pdq的处理时间评价
+
+该例程对优先级队列中事先有多少数据,会对snd_pdf的处理时间产生怎样的影响
+进行评价.具体而言,在优先级队列中事先放入n个高优先级的数据,然后测量通过
+snd_dtq插入一个低优先级数据所花费的时间.n的值设为
+10,20,30,40,50,100,200,300.
+
+(4) perf3		set_flg的处理时间评价
+
+该例程对事先等待事件标志的任务数,会对set_flg的处理时间产生怎样的影响进
+行评价.具体而言,创建一个事件标志,其属性为TA_WMUL(即允许多个任务同时等待
+),然后使n个任务等待该事件标志的发生,再测量通过set_flg解除所有等待任务所
+需要的时间.n的值取0,1,2,3,4,5,10,20.
+
+(5) perf4		act_tsk,iact_tsk的处理时间和任务切换时间评价
+
+该例程测量act_tsk,iact_tsk的处理时间和任务切换时间.具体而言,测量以下时
+间(1)act_tsk的执行时间(无任务切换),(2)act_tsk的执行时间(有任务切换,并包
+含任务切换的时间),(3)iact_tsk的执行时间(包含任务切换的时间和系统时钟中
+断中更新系统时刻所花费的时间).
+
+
+11. 使用上的注意与提示
+
+11.1. 系统时钟驱动的嵌入
+
+如在系统中使用系统时钟,需要在系统配置文件头部中包含target_timer.cfg.
+
+11.2 assert宏的处理
+
+ASP内核代码中使用assert宏.assert宏的具体定义在t_stddef.h中,assert失败的
+场合的最后处理(通常的处理为停止处理器工作)由目标依赖部分的
+TOPPERS_assert_abort决定.
+
+如果asser失败,在系统开发的过程中希望能由调试器捕捉到,但系统工作时应如何
+处理,依赖于相应的系统要求.有必要将目标依赖部分中TOPPERS_assert_abort替换
+为符合系统要求的合适的处理.如果系统要求需要,通过定义NDEBUG使得assert宏的
+相关处理从最终目标代码消除,也是可以的(具体参照6.2 编译选项).
+
+11.3 系统日志功能的使用
+
+ASP内核中处于系统开发便利性的考虑,默认包含了系统日志功能.
+
+与此相对应,对于有些使用ASP内核的嵌入式系统而言,在实际使用过程,使用系统
+日志功能可能无意义或者无法使用(如无串行口).对于此种情况,相应的系统日志
+功能有如下设定方法.
+
+(1) 不使用系统日志功能
+
+当不使用系统系统日志功能时,不要把系统日志功能包含于系统(相应的系统配置
+文件中不要包含syslog.cfg),对于可能包含有系统日志功能服务调用的源文件,应
+定义宏TOPPERS_OMIT_SYSLOG后再编译链接.
+
+(2) 只存储日志信息
+
+对于那些可以通过串行口等手段与外部进行通信的系统,可以设定当系统正常工作
+时,对于系统日志信息只存储而不输出,当系统故障时把所有的系统日志信息取出,
+然后分析故障原因.
+
+具体的设定方法有以下两种.
+
+(2-1) 把底层输出保存于内存中
+
+设定把必要的日志信息通过底层输出功能输出,然后在底层输出函数
+(target_fput_log)中把相应的字符保存于某个内存区域中(典型的为一个环状缓
+冲区中).当系统故障时,把该内存区域中的数据全部输出.
+
+(2-2) 把日志信息保存于系统日志功能的缓冲区中
+
+设定把必要的日志信息保存于系统日志功能的缓冲区(log buffer)中.当系统运行
+时,使系统日志任务不运行,则日志信息将保存于logbuffer中.当系统故障时,恢复
+系统日志任务,输出所有日志信息.
+
+(3) 保留开发调试时的设定
+
+系统实际使用过程中的设定与系统开发调试时的设定一致,通过串行口等形式输出
+所有日志信息也是可以考虑的.
+
+11.4 内核对象ID的管理
+
+ASP内核中所有对象(objects)的ID号都是由TOPPERS配置器自动分配的.当应用中
+希望使用某个对象的ID时,相应的方法有以下两个.
+
+(1) 使用对象识别名
+
+在生成对象的静态API(CRE_YYY)中,其第一个参数即为对象识别名.在应用中可以
+使用此识别名
+
+TOPPERS配置器以C语言宏定义的形式(#define)在kernel_cfg.h中为相应的对象识
+别名分配ID号.如应用需要使用,则包含kernel_cfg.h即可.
+
+此种方法直接把对象识别名,直接替换为对应的ID,执行效率较好.但另一方面,每
+当TOPPERS配置器改变kernel_cfg.h,所有包含kernel_cfg.h源文件都需要重新编
+译.因此,最好只在应用的部分源文件中使用对象识别名.
+
+(2) 使用保存对象ID的变量
+
+应用可以以访问变量的形式使用对象ID,这些变量应加上const限定符.例如,需要
+访问TASK1的对象ID时,可以定义以下变量.
+
+const ID TASK1_id = TASK1;
+
+如果应用程序使用了这个变量,当调用配置器后kernel_cfg.h发生变化时,只需要重
+新编译包含上述变量定义的源文件即可.
+
+此种方法可以减少需要重新编译的文件数,但同时需要占用一定的存储空间,且访问
+变量也会有一定的花费.另外,因为是变量而不是常数,在变量初始化完成之前是不
+能使用的.
+
+当在配置器中增加--external-id选项时,会在kernel_cfg.c中生成上述变量的定义.
+当全部对象ID通过此种方法访问时,推荐使用这种功能.
+
+对象ID全部由配置器自动分配时,会有一个问题.改变系统配置文件(比如改变某些
+对象生成的顺序)可以改变对象ID的生成.如果应用中对象的ID已经在设计规范中
+明确规定(即不能改变),或者在调试过程中直接使用对象ID,这种自动分配机制可能
+带来诸如效率低下之类的问题.
+
+针对此种问题,可以使用TOPPERS配置器的对象ID分配结果输出(--id-output-file
+选项)和导入包含对象ID分配文件(--id-input-file选项)的功能.通过导入上次对
+象ID分配的结果,可以使得即使系统配置文件发生了变化,对象ID的分配与上次保
+持一致.但是,由于ASP内核不允许ID号出现断续,当对象数量减少的场合(ID号大的
+对象减少的场合除外,比如分配1-10共10个ID,去除ID号为10的对象,不会对1-9号
+对象的ID分配的结果产生影响),可能出现错误.此时只能生成一些空对象(dummy
+object)予以规避这种错误.
+
+11.5. 内核内部符号的重命名
+
+在ASP内核中,为了使内核的内部符号不与其他模块的符号发生冲突,内核内部符号
+在C语言层面上都在名称前加上了"_kernel_"或者"_KERNEL_".
+ 
+同时,为了兼顾代码的可读性.在ASP内核源文件中仍然使用普通的名称编写,只是
+在C语言预处理时用宏定义(#difine)在名称前加上了"_kernel_"或者 "_KERNEL_"
+(比如某名称 为yyyyy,则被宏定义为_kernel_yyyyy). 
+
+具体的说,在相关目录下放有重命名定义文件xxx_rename.def,通过工具
+utils/genrename (perl脚本)可以读取xxx_rename.def生成重命名头文件(
+xxx_rename.h以及xxx_unrename.h).
+
+此种方法在保持代码可读性以及避免符号冲突的同时,另一方面也有弊端.比如很
+多调试器只要源文件与目标文件中的对应的变量名不同便不能在调试中查看相关
+变量的值,也不能设置断点.
+
+为了解决上述问题,ASP内核同时准备了只对源码中符合条件的符号进行重命名的
+工具 (utils/applyrename).只要传递给applyrename重命名定义文件(
+xxx_rename.def)的前缀(xxx部分)以及想要重命名的文件清单,便能进行重命名处
+理.如果想重命名kernel目录下的所有文件的内核内部符号,执行如下命令. 
+
+	% cd kernel
+	% ../utils/applyrename kernel *
+
+如果想重命名目标依赖部分目录下的所有文件的内核内部符号,执行如下命令.
+	
+	% cd target/dve68k_gcc/
+	% ../../utils/applyrename target *
+	% ../../utils/applyrename ../../kernel/kernel *
+
+11.6. 追踪日志记录的示例代码的使用说明
+
+如果追踪日志记录的示例代码已经嵌入了目标系统上.只需要在配置脚本中加上命
+令选项-r,就可以内存上记录追踪日志了. 
+
+比如在系统起动时开始追踪日志的记录,系统结束时导出所有(dump)已经记录下的
+追踪日志的代码如下(只需将下述代码添加到系统配置文件中).
+ 
+	#include "logtrace/trace_config.h"
+	ATT_INI({ TA_NULL, TRACE_AUTOSTOP, trace_initialize });
+	ATT_TER({ TA_NULL, target_fput_log, trace_dump });
+
+这里给初始化例程(trace_initialize)的参数(TRACE_AUTOSTOP)指定了追踪日志
+的运行模式.相关模式详见arch/logtrace/trace_config.h中的注释.
+
+在结束处理例程trace_dump()中,会将记录的追踪日志利用目标依赖的底层输出机
+能(target_fput_log)输出.如果采用别的方法提取追踪日志,则可以不注册结束处
+理例程.
+
+上述方法中,由于trace_initialize和trace_dump是分别作为初始化例程和结束例
+程注册的,因此在trace_initialize执行之前,以及trace_dump执行之后,都无法使
+用追踪日志的记录功能.如在这些地方有使用追踪日志记录相应的处理的必要(例如
+,内核对象的初始化的处理,在trace_initialize之前注册的初始化处理例程和在
+trace_dump之后注册的结束处理例程),需调整trace_initialize和trace_dump的
+调用位置.
+
+11.7 系统起动时的初始化处理
+
+当应用在系统起动时需要做某些初始化的处理时,可以把这些处理作为初始化例程
+注册入内核.然而对于某些应用,可能在初始化例程执行之前的更早的的阶段需要
+做一些初始化处理.
+
+针对这种情况,可以通过使用ASP内核中由标准初始化模块调用的目标依赖部分初
+始化钩子函数(hook)hardware_init_hook来实现早期初始化.虽然一般而言
+hardware_init_hook是作为目标依赖部分的组成是内核的一部分,但应用可以重新
+实现hardware_init_hook以替代原有的操作,来实现必要的初始化.
+
+需要注意的是,调用hardware_init_hook时,此时系统的bss段和data尚未初始化,
+库也尚未初始化,有些操作可以用C语言实现,有些操作则不能.关于
+hardware_init_hook的具体细节,请参照<目标依赖部分的移植指南>.
+
+如果内核的标准初始化模块没有实现对hardware_init_hook的调用,可以使用由应
+用实现的初始化模块替代.
+
+ 
+12. 参考信息
+
+12.1. 使用条件及使用报告
+
+ASP内核的使用条件在ASP内核各文件的头部中表示.相应的版权由ASP内核各文件
+的头部中表示的版权所有者保有.
+
+关于使用条件中(3)条(b)款,向TOPPERS Project报告使用情况.请把使用ASP内核
+产品的名称,应用领域,公司名等信息,在以下URL中报告.
+
+	http://www.toppers.jp/report.html 
+
+如能附上关于使用ASP内核的评论,则再好不过.
+ 
+12.2. 保证-适用性-支持
+
+ASP内核以无保证的形式提供给社会.开发者以及TOPPERS Project对于在特定的使
+用目的中使用ASP内核是否适合不提供任何保证,同时,对因使用ASP内核而引起的
+直接或间接的损失,均不负任何责任.
+
+开发者以及TOPPERS Porject对于提供ASP内核相关的支持没有约束.如有关于ASP
+内核的问题,可以利用后述的TOPPERS用户邮件列表,寻求解决.如确实需要相应的
+支持,可以与提供有偿服务的相关公司联系.
+
+12.3. bug报告
+
+如果发现ASP内核存在问题或bug,TOPPERS Project希望能通过后述的TOPPERS用户
+邮件列表对问题或bug进行报告.
+
+当通过邮件列表报告问题和bug时,希望能提供以下信息.
+
+	关于内核的信息
+		# 目标非依赖部分的版本
+		# 目标依赖部分的版本
+		# 对来自于TOPPERS Project的发布包的修改(如果有的话)
+
+	关于目标系统的信息
+		# 目标处理器的型号
+		# 目标板的型号
+
+	上位机信息
+		# OS的版本(包括Service Pack)
+		# 例如编译器版本之类的开发环境信息(包括Cygwin的版本)
+
+12.4. 网站
+
+TOPPERS Project的官方网站,请访问以下地址. 
+	
+	http://www.toppers.jp/ 
+
+关于TOPPERS Project和ASP内核的最新信息,可以从官方网站中获得.另外,ASP内
+核的最新版本也可以从官方网站中下载. 
+
+12.5. TOPPERS用户邮件列表
+
+为了方便使用包括ASP内核在内的TOPPERS Project开发成果物的用户提供信息以及
+彼此之间进行交流,TOPPERS Project设立了TOPPERS用户邮件列表
+(users@toppers.jp)
+
+该邮件列表任何人都可以登陆,向其发送邮件或接收来邮件(如果不登陆的话,将不
+会收到来自该邮件列表的邮件).同时,在TOPPERS网站中任何人也都可以访问此邮
+件列表.
+ 
+关于邮件列表的登陆方法,请参考下述网址.
+	
+	http://www.toppers.jp/community.html 
+
+12.6. TOPPERS Project为其成员提供的服务
+
+对于TOPPERS project的成员,除上述服务外,还可以享有以下服务.
+
+(1) TOPPERS开发者邮件列表
+
+TOPPERS Project的成员可以利用通过TOPPERS开发者邮件列表(dev@toppers.jp),
+提出关于ASP内核的问题,报告bug和问题.
+
+(2) ASP内核开发支持网站 
+
+ASP内核的开发用的TRAC(一种bug追踪系统),可以通过以下网址访问(需要会员账
+号和密码)
+
+	http://dev.toppers.jp/proj/asp/ 
+
+TOPPERS Projet的成员可以经此站点,以Web或subversion的形式,可以获得最新的
+正在开发中的ASP内核版本,同时可以浏览bug记录,并报告新的bug.
+
+12.7. 加入TOPPERS Project
+
+凡是任何能对TOPPERS Project做出贡献,任何使用TOPPERS Project所开发的软件
+和任何对TOPPERS Project感兴趣的组织或个人,都欢迎加入TOPPERS Project.具
+体加入方法,参见以下页面.
+
+	http://www.toppers.jp/joinus.html 
+
+
+13. 附录
+
+13.1. 服务调用一览
+
+(1) 任务管理功能
+
+	ER ercd = act_tsk(ID tskid)
+        ER ercd = iact_tsk(ID tskid)
+        ER_UINT actcnt = can_act(ID tskid)
+        ER ercd = ext_tsk(void)
+        ER ercd = ter_tsk(ID tskid)
+        ER ercd = chg_pri(ID tskid, PRI tskpri)
+        ER ercd = get_pri(ID tskid, PRI *p_tskpri)
+        ER ercd = get_inf(intptr_t *p_exinf)
+        ER ercd = ref_tsk(ID tskid, T_RTSK *pk_rtsk)
+
+(2) 任务附属同步功能
+
+        ER ercd = slp_tsk(void)
+        ER ercd = tslp_tsk(TMO tmout)
+        ER ercd = wup_tsk(ID tskid)
+        ER ercd = iwup_tsk(ID tskid)
+        ER_UINT wupcnt = can_wup(ID tskid)
+        ER ercd = rel_wai(ID tskid)
+        ER ercd = irel_wai(ID tskid)
+        ER ercd = sus_tsk(ID tskid)
+        ER ercd = rsm_tsk(ID tskid)
+        ER ercd = dly_tsk(RELTIM dlytim)
+
+(3) 任务异常处理功能
+
+        ER ercd = ras_tex(ID tskid, TEXPTN rasptn)
+        ER ercd = iras_tex(ID tskid, TEXPTN rasptn)
+        ER ercd = dis_tex(void)
+        ER ercd = ena_tex(void)
+        bool_t state = sns_tex(void)
+        ER ercd = ref_tex(ID tskid, T_RTEX *pk_rtex)
+
+(4) 同步通信功能
+
+        ER ercd = sig_sem(ID semid)
+        ER ercd = isig_sem(ID semid)
+        ER ercd = wai_sem(ID semid)
+        ER ercd = pol_sem(ID semid)
+        ER ercd = twai_sem(ID semid, TMO tmout)
+        ER ercd = ini_sem(ID semid)
+        ER ercd = ref_sem(ID semid, T_RSEM *pk_rsem)
+
+        ER ercd = set_flg(ID flgid, FLGPTN setptn)
+        ER ercd = iset_flg(ID flgid, FLGPTN setptn)
+        ER ercd = clr_flg(ID flgid, FLGPTN clrptn)
+        ER ercd = wai_flg(ID flgid, FLGPTN waiptn,
+     		MODE wfmode, FLGPTN *p_flgptn)
+        ER ercd = pol_flg(ID flgid, FLGPTN waiptn,
+     		MODE wfmode, FLGPTN *p_flgptn)
+        ER ercd = twai_flg(ID flgid, FLGPTN waiptn,
+      		MODE wfmode, FLGPTN *p_flgptn, TMO tmout)
+        ER ercd = ini_flg(ID flgid)
+        ER ercd = ref_flg(ID flgid, T_RFLG *pk_rflg)
+
+        ER ercd = snd_dtq(ID dtqid, intptr_t data)
+        ER ercd = psnd_dtq(ID dtqid, intptr_t data)
+        ER ercd = ipsnd_dtq(ID dtqid, intptr_t data)
+        ER ercd = tsnd_dtq(ID dtqid, intptr_t data, TMO tmout)
+        ER ercd = fsnd_dtq(ID dtqid, intptr_t data)
+        ER ercd = ifsnd_dtq(ID dtqid, intptr_t data)
+        ER ercd = rcv_dtq(ID dtqid, intptr_t *p_data)
+        ER ercd = prcv_dtq(ID dtqid, intptr_t *p_data)
+        ER ercd = trcv_dtq(ID dtqid, intptr_t *p_data, TMO tmout)
+        ER ercd = ini_dtq(ID dtqid)
+        ER ercd = ref_dtq(ID dtqid, T_RDTQ *pk_rdtq)
+
+        ER ercd = snd_pdq(ID pdqid, intptr_t data, PRI datapri)
+        ER ercd = psnd_pdq(ID pdqid, intptr_t data, PRI datapri)
+        ER ercd = ipsnd_pdq(ID pdqid, intptr_t data, PRI datapri)
+        ER ercd = tsnd_pdq(ID pdqid, intptr_t data, PRI datapri, TMO tmout)
+        ER ercd = rcv_pdq(ID pdqid, intptr_t *p_data, PRI *p_datapri)
+        ER ercd = prcv_pdq(ID pdqid, intptr_t *p_data, PRI *p_datapri)
+        ER ercd = trcv_pdq(ID pdqid, intptr_t *p_data, PRI *p_datapri, TMO tmout)
+        ER ercd = ini_pdq(ID pdqid)
+        ER ercd = ref_pdq(ID pdqid, T_RPDQ *pk_rpdq)
+
+        ER ercd = snd_mbx(ID mbxid, T_MSG *pk_msg)
+        ER ercd = rcv_mbx(ID mbxid, T_MSG **ppk_msg)
+        ER ercd = prcv_mbx(ID mbxid, T_MSG **ppk_msg)
+        ER ercd = trcv_mbx(ID mbxid, T_MSG **ppk_msg, TMO tmout)
+        ER ercd = ini_mbx(ID mbxid)
+        ER ercd = ref_mbx(ID mbxid, T_RMBX *pk_rmbx)
+
+(5) 固定长内存池管理功能
+
+        ER ercd = get_mpf(ID mpfid, void **p_blk)
+        ER ercd = pget_mpf(ID mpfid, void **p_blk)
+        ER ercd = tget_mpf(ID mpfid, void **p_blk, TMO tmout)
+        ER ercd = rel_mpf(ID mpfid, void *blk)
+        ER ercd = ini_mpf(ID mpfid)
+        ER ercd = ref_mpf(ID mpfid, T_RMPF *pk_rmpf)
+
+(6) 时间管理功能
+
+        ER ercd = get_tim(SYSTIM *p_systim)
+        ER ercd = get_utm(SYSUTM *p_sysutm)
+
+        ER ercd = sta_cyc(ID cycid)
+        ER ercd = stp_cyc(ID cycid)
+        ER ercd = ref_cyc(ID cycid, T_RCYC *pk_rcyc)
+
+        ER ercd = sta_alm(ID almid, RELTIM almtim)
+        ER ercd = ista_alm(ID almid, RELTIM almtim)
+        ER ercd = stp_alm(ID almid)
+        ER ercd = istp_alm(ID almid)
+        ER ercd = ref_alm(ID almid, T_RALM *pk_ralm)
+
+(7) 系统状态管理功能
+
+        ER ercd = rot_rdq(PRI tskpri)
+        ER ercd = irot_rdq(PRI tskpri)
+        ER ercd = get_tid(ID *p_tskid)
+        ER ercd = iget_tid(ID *p_tskid)
+        ER ercd = loc_cpu(void)
+        ER ercd = iloc_cpu(void)
+        ER ercd = unl_cpu(void)
+        ER ercd = iunl_cpu(void)
+        ER ercd = dis_dsp(void)
+        ER ercd = ena_dsp(void)
+        bool_t state = sns_ctx(void)
+        bool_t state = sns_loc(void)
+        bool_t state = sns_dsp(void)
+        bool_t state = sns_dpn(void)
+        bool_t state = sns_ker(void)
+        ER ercd = ext_ker(void)
+
+(8) 中断管理功能
+
+        ER ercd = dis_int(INTNO intno)
+        ER ercd = ena_int(INTNO intno)
+        ER ercd = chg_ipm(PRI intpri)
+        ER ercd = get_ipm(PRI *p_intpri)
+
+(9) CPU异常管理功能
+
+        bool_t stat = xsns_dpn(void *p_excinf)
+        bool_t stat = xsns_xpn(void *p_excinf)
+
+13.2. 静态API一览
+
+(1) 任务管理功能
+
+        CRE_TSK(ID tskid, { ATR tskatr, intptr_t exinf, TASK task,
+ 			PRI itskpri, SIZE stksz, STK_T *stk })
+
+(3) 任务异常管理功能
+
+        DEF_TEX(ID tskid, { ATR texatr, TEXRTN texrtn })
+
+(4) 同步与通信功能
+
+        CRE_SEM(ID semid, { ATR sematr, uint_t isemcnt, uint_t maxsem })
+        CRE_FLG(ID flgid, { ATR flgatr, FLGPTN iflgptn })
+        CRE_DTQ(ID dtqid, { ATR dtqatr, uint_t dtqcnt, void *dtqmb })
+        CRE_PDQ(ID pdqid, { ATR pdqatr, uint_t pdqcnt, PRI maxdpri, void *pdqmb })
+        CRE_MBX(ID mbxid, { ATR mbxatr, PRI maxmpri, void *mprihd })
+
+(5) 内存池管理功能
+
+        CRE_MPF(ID mpfid, { ATR mpfatr, uint_t blkcnt, uint_t blksz,
+			MPF_T *mpf, void *mpfmb })
+
+(6) 时间管理功能
+
+        CRE_CYC(ID cycid, { ATR cycatr, intptr_t exinf, CYCHDR cychdr,
+      		RELTIM cyctim, RELTIM cycphs })
+        CRE_ALM(ID almid, { ATR almatr, intptr_t exinf, ALMHDR almhdr })
+
+(8) 中断管理功能
+
+        ATT_ISR({ ATR isratr, intptr_t exinf, INTNO intno, ISR isr, PRI isrpri })
+        DEF_INH(INHNO inhno, { ATR inhatr, INTHDR inthdr })
+        CFG_INT(INTNO intno, { ATR intatr, PRI intpri })
+
+(9) CPU异常管理功能
+
+        DEF_EXC(EXCNO excno, { ATR excatr, EXCHDR exchdr })
+
+(10) 系统构成管理功能
+
+        DEF_ICS({ SIZE istksz, STK_T *istk })
+        ATT_INI({ ATR iniatr, intptr_t exinf, INIRTN inirtn })
+        ATT_TER({ ATR teratr, intptr_t exinf, TERRTN terrtn })
+
+13.3. 版本信息
+
+	2006年10月29日	Release	1.A.0		第一次发布
+	2007年2月20日	Release	1.A.1
+	2007年2月20日	Release	1.A.2
+	2007年7月12日	Release	1.B.0		更新配置器
+	2007年7月12日	Release	1.B.1		许可证条件变更
+	2007年7月16日	Release	1.B.2
+	2007年7月21日	Release	1.B.3		变更目录构成
+	2007年8月20日	Release	1.B.4		增加扩展包
+	2007年10月16日	Release 1.B.5
+	2007年11月15日	Release 1.0.0		正式版发布
+	2007年12月23日	Release 1.1.0
+	2008年3月19日	Release 1.2.0
+	2008年3月21日	Release 1.2.1
+	2008年4月12日	Release 1.3.0		公开发布的最终修正
+	2008年5月13日	Release 1.3.1		首次公开发布
+	2008年8月21日	Release 1.3.2
+	2009年5月11日	Release 1.4.0
+	2010年6月28日	Release 1.5.0		扩展包发布
+	2010年8月1日	Release 1.6.0		对应于cfg-1.6
+	2011年5月8日	Release 1.7.0		增加动态创建扩展包
+
+完
