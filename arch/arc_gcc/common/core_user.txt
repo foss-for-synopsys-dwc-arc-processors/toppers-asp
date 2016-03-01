@@ -91,8 +91,9 @@ The management of exceptions and interrups is implemented through the auxilliary
 registers of ARC.
 
 --------exceptions and interrupts vector table-----------------------------
-Exception		Exception No.  Reset			0x00 Memory
-Error		0x01
+Exception		Exception No.  
+Reset			0x00
+Error			0x01
 Instruction Error	0x02
 EV_MachineCheck		0x03
 EV_TLBMissI		0x04

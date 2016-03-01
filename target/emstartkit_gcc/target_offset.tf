@@ -1,5 +1,5 @@
 $
-$       the template file to generate offset file (for EMSTARTKIT)
+$       the template file to generate offset file (for emstartkit)
 $
 
 $
